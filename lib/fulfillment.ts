@@ -1,26 +1,19 @@
 import { sendDeliveryEmail } from "@/lib/email";
-import { mercadoPago } from "@/lib/mercadopago";
 import { decodeOrder } from "@/lib/order";
 import { getProduct } from "@/lib/products";
 
-type Payer = {
-  email?: string;
-  first_name?: string;
-};
-
-type ApprovedPayment = {
-  id?: number | string;
-  status?: string;
-  external_reference?: string;
-  metadata?: { order?: unknown };
-  payer?: Payer;
-};
-
 export type FulfillmentResult =
-  | { outcome: "ignored"; status?: string }
   | { outcome: "missing-email" }
   | { outcome: "unknown-product"; productId: string }
   | { outcome: "sent"; productId: string; emailId?: string };
+
+export type PaidOrder = {
+  paymentId: string;
+  email: string;
+  buyerName?: string;
+  /** `id:qtd,id:qtd`, o mesmo valor enviado na cobrança. */
+  reference: string;
+};
 
 function maskEmail(email: string) {
   const [user, domain] = email.split("@");
@@ -28,45 +21,40 @@ function maskEmail(email: string) {
   return `${user.slice(0, 2)}***@${domain}`;
 }
 
-export async function fulfillPayment(paymentId: string): Promise<FulfillmentResult> {
-  const mp = mercadoPago();
-  const payment = (await mp.payment.get({ id: paymentId })) as ApprovedPayment;
-
-  if (payment.status !== "approved") {
-    return { outcome: "ignored", status: payment.status };
-  }
-
-  const email = payment.payer?.email?.trim();
+/**
+ * Envia o CSV depois que o gateway confirmar o Pix.
+ * O webhook só deve chamar isto com pagamento já verificado.
+ */
+export async function fulfillPaidOrder(order: PaidOrder): Promise<FulfillmentResult> {
+  const email = order.email.trim();
   if (!email) {
     return { outcome: "missing-email" };
   }
 
-  const metadataOrder = typeof payment.metadata?.order === "string" ? payment.metadata.order : "";
-  const reference = payment.external_reference?.trim() || metadataOrder.trim();
-  const order = decodeOrder(reference);
-  if (!order) {
-    return { outcome: "unknown-product", productId: reference };
+  const lines = decodeOrder(order.reference);
+  if (!lines) {
+    return { outcome: "unknown-product", productId: order.reference };
   }
 
-  const lines = [];
-  for (const line of order) {
+  const resolved = [];
+  for (const line of lines) {
     const product = getProduct(line.productId);
     if (!product) {
       return { outcome: "unknown-product", productId: line.productId };
     }
-    lines.push({ product, quantity: line.quantity });
+    resolved.push({ product, quantity: line.quantity });
   }
 
   const sent = await sendDeliveryEmail({
     to: email,
-    buyerName: payment.payer?.first_name?.trim() || undefined,
-    lines,
-    paymentId: String(payment.id ?? paymentId),
+    buyerName: order.buyerName?.trim() || undefined,
+    lines: resolved,
+    paymentId: order.paymentId,
   });
 
   console.info(
-    `[webhook] CSV enviado pagamento=${paymentId} leads=${lines.map((line) => line.product.id).join(",")} para=${maskEmail(email)}`,
+    `[webhook] CSV enviado pagamento=${order.paymentId} leads=${resolved.map((line) => line.product.id).join(",")} para=${maskEmail(email)}`,
   );
 
-  return { outcome: "sent", productId: lines[0].product.id, emailId: sent?.id };
+  return { outcome: "sent", productId: resolved[0].product.id, emailId: sent?.id };
 }

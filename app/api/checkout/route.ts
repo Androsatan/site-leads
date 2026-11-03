@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { MissingEnvError, appUrl, isHttpsApp } from "@/lib/env";
-import { checkoutUrl, mercadoPago } from "@/lib/mercadopago";
+import { appUrl, isHttpsApp } from "@/lib/env";
 import { encodeOrder, isProductId, mergeLines, parseQuantity, type OrderLine } from "@/lib/order";
 import { getProduct } from "@/lib/products";
 
@@ -77,59 +76,27 @@ export async function POST(request: Request) {
     return {
       id: product.id,
       title: product.name,
-      description: product.description,
       quantity: line.quantity,
-      unit_price: product.price,
-      currency_id: "BRL",
+      unitPrice: product.price,
     };
   });
+  const total = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const reference = encodeOrder(order.lines);
+  const notificationUrl = isHttpsApp() ? `${appUrl()}/api/webhook` : null;
 
-  try {
-    const mp = mercadoPago();
-    const base = appUrl();
-    const preference = await mp.preference.create({
-      body: {
-        items,
-        external_reference: reference,
-        metadata: { order: reference },
-        statement_descriptor: "LEADSfera",
-        back_urls: {
-          success: `${base}/sucesso`,
-          failure: `${base}/falha`,
-          pending: `${base}/pendente`,
-        },
-        ...(isHttpsApp()
-          ? {
-              auto_return: "approved" as const,
-              notification_url: `${base}/api/webhook`,
-            }
-          : {}),
-      },
-    });
+  // TODO: Asaas ou PagHiper — criar a cobrança Pix.
+  // - Valor: `total` em reais, sempre do catálogo, nunca do navegador.
+  // - Itens: `items`.
+  // - Referência externa: `reference` (`id:qtd,id:qtd`) para o webhook achar o pedido.
+  // - notificationUrl: `notificationUrl` (null em http; em https aponta para /api/webhook).
+  // - Responder { url } com o link do pagamento para o navegador redirecionar.
+  void items;
+  void total;
+  void reference;
+  void notificationUrl;
 
-    const url = checkoutUrl(mp.accessToken, preference);
-    if (!url) {
-      console.error("[checkout] preferência sem init_point", preference.id);
-      return NextResponse.json(
-        { error: "O checkout não devolveu o link de pagamento." },
-        { status: 502 },
-      );
-    }
-
-    return NextResponse.json({ url, preferenceId: preference.id });
-  } catch (error) {
-    if (error instanceof MissingEnvError) {
-      return NextResponse.json(
-        { error: `Configure ${error.envName} no arquivo .env e reinicie o servidor.` },
-        { status: 503 },
-      );
-    }
-
-    console.error("[checkout]", error);
-    return NextResponse.json(
-      { error: "Não foi possível abrir o checkout." },
-      { status: 500 },
-    );
-  }
+  return NextResponse.json(
+    { error: "O pagamento Pix ainda não está ligado." },
+    { status: 501 },
+  );
 }

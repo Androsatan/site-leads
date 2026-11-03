@@ -155,9 +155,11 @@ function renderDeliveryEmail(input: {
   return { html, text };
 }
 
+/** Remetente de testes do Resend. Sem domínio verificado, só entrega no e-mail da conta. */
+const RESEND_FROM = "LeadSfera <onboarding@resend.dev>";
+
 export async function sendDeliveryEmail(input: DeliveryInput) {
   const resend = new Resend(requireEnv("RESEND_API_KEY"));
-  const from = requireEnv("RESEND_FROM_EMAIL");
   const downloads = input.lines.map((line) => ({
     name: line.product.name,
     url: createDownloadUrl(line.product.id, input.paymentId),
@@ -183,7 +185,7 @@ export async function sendDeliveryEmail(input: DeliveryInput) {
 
   const { data, error } = await resend.emails.send(
     {
-      from,
+      from: RESEND_FROM,
       to: input.to,
       subject,
       html: rendered.html,
