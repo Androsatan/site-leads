@@ -1,6 +1,6 @@
 import { sendDeliveryEmail } from "@/lib/email";
 import { decodeOrder } from "@/lib/order";
-import { getProduct } from "@/lib/products";
+import { getProduct } from "@/lib/catalog";
 
 export type FulfillmentResult =
   | { outcome: "missing-email" }
@@ -38,7 +38,7 @@ export async function fulfillPaidOrder(order: PaidOrder): Promise<FulfillmentRes
 
   const resolved = [];
   for (const line of lines) {
-    const product = getProduct(line.productId);
+    const product = await getProduct(line.productId);
     if (!product) {
       return { outcome: "unknown-product", productId: line.productId };
     }

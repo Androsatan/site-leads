@@ -1,4 +1,4 @@
-import { readFile } from "fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import path from "path";
 
 const ROOT = path.join(process.cwd(), "private", "products");
@@ -24,4 +24,17 @@ export function productFilePath(fileName: string) {
 
 export function readProductFile(fileName: string) {
   return readFile(productFilePath(fileName));
+}
+
+export async function writeProductFile(fileName: string, content: Buffer) {
+  await mkdir(ROOT, { recursive: true });
+  await writeFile(productFilePath(fileName), content);
+}
+
+export async function deleteProductFile(fileName: string) {
+  try {
+    await unlink(productFilePath(fileName));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
 }

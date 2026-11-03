@@ -1,18 +1,48 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
-import { appUrl, isHttpsApp } from "@/lib/env";
+import { appUrl, MissingEnvError } from "@/lib/env";
 import { encodeOrder, isProductId, mergeLines, parseQuantity, type OrderLine } from "@/lib/order";
-import { getProduct } from "@/lib/products";
+import { getProduct } from "@/lib/catalog";
+import { createPixInvoice, PagHiperError, type PixChargeItem } from "@/lib/paghiper";
+import { savePendingOrder } from "@/lib/pending-order";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const MIN_CENTS = 300;
 
 type CheckoutBody = {
   productId?: unknown;
   quantity?: unknown;
   items?: unknown;
+  payerName?: unknown;
+  payerEmail?: unknown;
+  payerCpfCnpj?: unknown;
 };
 
-function readOrder(body: CheckoutBody): { lines: OrderLine[] } | { error: string; status: number } {
+function digits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function readPayer(body: CheckoutBody): { name: string; email: string; cpfCnpj: string } | { error: string } {
+  const name = typeof body.payerName === "string" ? body.payerName.trim().replace(/\s+/g, " ") : "";
+  const email = typeof body.payerEmail === "string" ? body.payerEmail.trim().toLowerCase() : "";
+  const cpfCnpj = typeof body.payerCpfCnpj === "string" ? digits(body.payerCpfCnpj) : "";
+
+  if (name.length < 3 || name.length > 255) {
+    return { error: "Informe o nome completo de quem vai pagar." };
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 255) {
+    return { error: "Informe um e-mail válido para receber o CSV." };
+  }
+  if (cpfCnpj.length !== 11 && cpfCnpj.length !== 14) {
+    return { error: "Informe um CPF ou CNPJ válido, só com números." };
+  }
+
+  return { name, email, cpfCnpj };
+}
+
+async function readOrder(body: CheckoutBody): Promise<{ lines: OrderLine[] } | { error: string; status: number }> {
   const raw: OrderLine[] = [];
 
   if (Array.isArray(body.items)) {
@@ -29,7 +59,7 @@ function readOrder(body: CheckoutBody): { lines: OrderLine[] } | { error: string
       }
       const productId = "productId" in item && typeof item.productId === "string" ? item.productId : "";
       const quantity = "quantity" in item ? parseQuantity(item.quantity) : null;
-      if (!isProductId(productId) || !getProduct(productId)) {
+      if (!isProductId(productId) || !(await getProduct(productId))) {
         return { error: "Lead não encontrado.", status: 404 };
       }
       if (!quantity) {
@@ -39,7 +69,7 @@ function readOrder(body: CheckoutBody): { lines: OrderLine[] } | { error: string
     }
   } else if (typeof body.productId === "string") {
     const quantity = body.quantity === undefined ? 1 : parseQuantity(body.quantity);
-    if (!isProductId(body.productId) || !getProduct(body.productId)) {
+    if (!isProductId(body.productId) || !(await getProduct(body.productId))) {
       return { error: "Lead não encontrado.", status: 404 };
     }
     if (!quantity) {
@@ -66,37 +96,80 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
   }
 
-  const order = readOrder(body);
+  const payer = readPayer(body);
+  if ("error" in payer) {
+    return NextResponse.json({ error: payer.error }, { status: 400 });
+  }
+
+  const order = await readOrder(body);
   if ("error" in order) {
     return NextResponse.json({ error: order.error }, { status: order.status });
   }
 
-  const items = order.lines.map((line) => {
-    const product = getProduct(line.productId)!;
-    return {
-      id: product.id,
-      title: product.name,
+  const items: PixChargeItem[] = [];
+  let totalCents = 0;
+  for (const line of order.lines) {
+    const product = await getProduct(line.productId);
+    if (!product) {
+      return NextResponse.json({ error: "Lead não encontrado." }, { status: 404 });
+    }
+    const priceCents = product.price * 100;
+    totalCents += priceCents * line.quantity;
+    items.push({
+      item_id: product.id,
+      description: product.name.slice(0, 255),
       quantity: line.quantity,
-      unitPrice: product.price,
-    };
-  });
-  const total = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+      price_cents: String(priceCents),
+    });
+  }
+
+  if (totalCents < MIN_CENTS) {
+    return NextResponse.json({ error: "O Pix exige no mínimo R$ 3,00." }, { status: 400 });
+  }
+
+  const orderId = randomUUID();
   const reference = encodeOrder(order.lines);
-  const notificationUrl = isHttpsApp() ? `${appUrl()}/api/webhook` : null;
 
-  // TODO: Asaas ou PagHiper — criar a cobrança Pix.
-  // - Valor: `total` em reais, sempre do catálogo, nunca do navegador.
-  // - Itens: `items`.
-  // - Referência externa: `reference` (`id:qtd,id:qtd`) para o webhook achar o pedido.
-  // - notificationUrl: `notificationUrl` (null em http; em https aponta para /api/webhook).
-  // - Responder { url } com o link do pagamento para o navegador redirecionar.
-  void items;
-  void total;
-  void reference;
-  void notificationUrl;
+  try {
+    const charge = await createPixInvoice({
+      orderId,
+      payerEmail: payer.email,
+      payerName: payer.name,
+      payerCpfCnpj: payer.cpfCnpj,
+      notificationUrl: `${appUrl()}/api/webhook`,
+      items,
+    });
 
-  return NextResponse.json(
-    { error: "O pagamento Pix ainda não está ligado." },
-    { status: 501 },
-  );
+    if (!charge.transactionId || charge.valueCents !== totalCents) {
+      console.error("[checkout] cobrança divergente", { orderId, expected: totalCents, received: charge.valueCents });
+      return NextResponse.json({ error: "O valor do Pix não confere com o pedido." }, { status: 502 });
+    }
+
+    await savePendingOrder({
+      orderId,
+      reference,
+      email: payer.email,
+      name: payer.name,
+      totalCents,
+      createdAt: new Date().toISOString(),
+    });
+
+    return NextResponse.json({
+      pix_code: charge.pixCode,
+      qrcode_image_url: charge.qrcodeImageUrl,
+    });
+  } catch (error) {
+    if (error instanceof MissingEnvError) {
+      return NextResponse.json(
+        { error: `Configure ${error.envName} no arquivo .env e reinicie o servidor.` },
+        { status: 503 },
+      );
+    }
+
+    console.error("[checkout]", error instanceof Error ? error.message : error);
+    return NextResponse.json(
+      { error: error instanceof PagHiperError ? error.message : "Não foi possível gerar o Pix." },
+      { status: 502 },
+    );
+  }
 }

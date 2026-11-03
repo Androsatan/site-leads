@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Catalog } from "@/components/catalog";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Leads Qualificados",
   description:

@@ -1,26 +1,106 @@
+import { createHash, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
+import { MissingEnvError } from "@/lib/env";
 import { fulfillPaidOrder } from "@/lib/fulfillment";
+import { confirmPixNotification, fetchPixStatus, PagHiperError } from "@/lib/paghiper";
+import { readPendingOrder } from "@/lib/pending-order";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const PAID = new Set(["paid", "completed"]);
+
+function sameSecret(input: string, expected: string) {
+  const left = createHash("sha256").update(input).digest();
+  const right = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(left, right);
+}
+
+function field(params: URLSearchParams, ...names: string[]) {
+  for (const name of names) {
+    const value = params.get(name)?.trim();
+    if (value) return value;
+  }
+  return "";
+}
+
 /**
- * O gateway avisa esta rota quando o Pix muda de estado.
- * O CSV só sai depois do pagamento confirmado na API do gateway.
- * A página /sucesso não envia arquivo.
+ * O PagHiper avisa esta rota com um POST application/x-www-form-urlencoded.
+ * A apiKey e o token recebidos não autenticam nada: a confirmação é a
+ * consulta na API com as credenciais do servidor.
+ * O CSV só sai com status paid ou completed.
  */
 export async function POST(request: Request) {
-  const raw = await request.text();
+  let params: URLSearchParams;
+  try {
+    params = new URLSearchParams(await request.text());
+  } catch {
+    return NextResponse.json({ error: "Notificação inválida." }, { status: 400 });
+  }
 
-  // TODO: Asaas ou PagHiper
-  // 1. Validar a assinatura do webhook com o segredo do .env.
-  // 2. Ler o id da cobrança no corpo.
-  // 3. Consultar a cobrança na API e seguir só se o Pix estiver pago.
-  // 4. Chamar fulfillPaidOrder({ paymentId, email, buyerName, reference }).
-  void raw;
-  void fulfillPaidOrder;
+  const postedKey = field(params, "apiKey");
+  const expectedKey = process.env.PAGHIPER_API_KEY?.trim();
+  if (postedKey && expectedKey && !sameSecret(postedKey, expectedKey)) {
+    return NextResponse.json({ error: "Notificação recusada." }, { status: 401 });
+  }
 
-  return NextResponse.json({ received: true });
+  const notificationId = field(params, "notification_id");
+  const transactionId = field(params, "transaction_id", "idTransacao", "id_transacao");
+  if (!notificationId || !transactionId) {
+    return NextResponse.json({ error: "Notificação sem identificador." }, { status: 400 });
+  }
+
+  try {
+    const notice = await confirmPixNotification({ transactionId, notificationId });
+    const status = await fetchPixStatus(transactionId);
+
+    if (notice.transactionId !== transactionId || status.transactionId !== transactionId) {
+      return NextResponse.json({ error: "Transação divergente." }, { status: 409 });
+    }
+    if (notice.status !== status.status || notice.valueCents !== status.valueCents) {
+      return NextResponse.json({ error: "Status divergente." }, { status: 409 });
+    }
+    if (!PAID.has(notice.status)) {
+      return NextResponse.json({ received: true, status: notice.status });
+    }
+
+    const pending = await readPendingOrder(notice.orderId);
+    if (!pending) {
+      console.error(`[webhook] pedido local ausente order=${notice.orderId}`);
+      return NextResponse.json({ error: "Pedido não encontrado." }, { status: 500 });
+    }
+    if (pending.totalCents !== notice.valueCents || pending.email !== notice.payerEmail) {
+      console.error(`[webhook] pedido não confere order=${notice.orderId}`);
+      return NextResponse.json({ error: "Pedido não confere." }, { status: 409 });
+    }
+
+    const result = await fulfillPaidOrder({
+      paymentId: notice.transactionId,
+      email: pending.email,
+      buyerName: pending.name,
+      reference: pending.reference,
+    });
+
+    if (result.outcome === "missing-email") {
+      console.error(`[webhook] pagador sem e-mail transaction=${notice.transactionId}`);
+      return NextResponse.json({ received: true, status: notice.status });
+    }
+    if (result.outcome === "unknown-product") {
+      console.error(`[webhook] lead desconhecido: ${result.productId}`);
+      return NextResponse.json({ received: true, status: notice.status });
+    }
+
+    return NextResponse.json({ received: true, status: notice.status });
+  } catch (error) {
+    if (error instanceof MissingEnvError) {
+      console.error(`[webhook] variável ausente: ${error.envName}`);
+      return NextResponse.json({ error: "Webhook sem credencial." }, { status: 503 });
+    }
+
+    console.error("[webhook]", error instanceof Error ? error.message : error);
+    const message = error instanceof PagHiperError ? "Falha ao confirmar o Pix." : "Falha ao entregar o pedido.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export function GET() {

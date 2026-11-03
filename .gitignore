@@ -7,7 +7,7 @@
 /.next/
 /out/
 
-# env — o exemplo versionado é .env.example
+# env
 .env
 .env.local
 .env.*.local
@@ -20,6 +20,9 @@ Thumbs.db
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pedidos com e-mail do pagador
+/private/orders
 
 # listas reais de clientes não devem ir para o git
 # (as amostras fictícias em private/products/*.csv estão versionadas de propósito)

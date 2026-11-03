@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { readDownloadToken } from "@/lib/download-token";
 import { readProductFile } from "@/lib/product-file";
-import { getProduct } from "@/lib/products";
+import { getProduct } from "@/lib/catalog";
 import { site } from "@/lib/site";
 
 export const runtime = "nodejs";
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const product = getProduct(payload.pid);
+  const product = await getProduct(payload.pid);
   if (!product) {
     return htmlPage(404, "Lead indisponível", "Não encontramos o lead ligado a este pedido.");
   }

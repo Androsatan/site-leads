@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useId, useState } from "react";
+import { PixCheckout } from "@/components/pix-checkout";
 import { QuantityStepper } from "@/components/quantity-stepper";
 import { useCart } from "@/components/cart-provider";
-import { requestCheckout } from "@/lib/checkout-client";
 import { formatBRL } from "@/lib/format";
 
 export function ProductActions({
@@ -18,24 +18,10 @@ export function ProductActions({
 }) {
   const cart = useCart();
   const [quantity, setQuantity] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [added, setAdded] = useState(false);
   const [message, setMessage] = useState("");
   const errorId = useId();
-
-  async function buy() {
-    setLoading(true);
-    setMessage("");
-    setAdded(false);
-
-    try {
-      const url = await requestCheckout([{ productId, quantity }]);
-      window.location.assign(url);
-    } catch (error) {
-      setLoading(false);
-      setMessage(error instanceof Error ? error.message : "Não foi possível abrir o checkout.");
-    }
-  }
 
   function add() {
     const result = cart.add(productId, quantity);
@@ -47,7 +33,7 @@ export function ProductActions({
     <div className={className}>
       <p className="text-[11px] tracking-[0.16em] text-mute">QUANTIDADE</p>
       <div className="mt-2 flex items-center justify-between gap-3">
-        <QuantityStepper value={quantity} onChange={setQuantity} disabled={loading} />
+        <QuantityStepper value={quantity} onChange={setQuantity} disabled={paying} />
         {quantity > 1 ? (
           <p className="text-right text-sm">
             <span className="block text-[11px] tracking-wide text-mute">Total</span>
@@ -55,24 +41,31 @@ export function ProductActions({
           </p>
         ) : null}
       </div>
-      <button
-        type="button"
-        onClick={buy}
-        disabled={loading}
-        aria-busy={loading}
-        aria-describedby={message ? errorId : undefined}
-        className="mt-3 w-full cursor-pointer bg-neon px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-white disabled:cursor-progress disabled:opacity-70"
-      >
-        {loading ? "Abrindo checkout…" : "Comprar agora"}
-      </button>
-      <button
-        type="button"
-        onClick={add}
-        disabled={loading}
-        className="mt-2 w-full cursor-pointer border border-line px-4 py-3 text-sm font-semibold text-paper transition-colors hover:border-neon disabled:cursor-not-allowed disabled:opacity-70"
-      >
-        Adicionar ao carrinho
-      </button>
+      {paying ? (
+        <PixCheckout items={[{ productId, quantity }]} onClose={() => setPaying(false)} />
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              setMessage("");
+              setAdded(false);
+              setPaying(true);
+            }}
+            aria-describedby={message ? errorId : undefined}
+            className="mt-3 w-full cursor-pointer bg-neon px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-white"
+          >
+            Comprar agora
+          </button>
+          <button
+            type="button"
+            onClick={add}
+            className="mt-2 w-full cursor-pointer border border-line px-4 py-3 text-sm font-semibold text-paper transition-colors hover:border-neon"
+          >
+            Adicionar ao carrinho
+          </button>
+        </>
+      )}
       {added ? (
         <p className="mt-3 text-sm leading-5 text-neon" aria-live="polite">
           Adicionado ao carrinho.{" "}

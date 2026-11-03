@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/product-card";
-import { products } from "@/lib/products";
+import { listProducts } from "@/lib/catalog";
 
-const preview = products.slice(0, 3);
-
-export function FeaturedLists() {
+export async function FeaturedLists() {
+  const preview = (await listProducts()).slice(0, 3);
   return (
     <section className="mx-auto max-w-[1120px] px-5 py-16 md:py-20">
       <p className="text-[11px] font-medium tracking-[0.22em] text-neon">EM DESTAQUE</p>

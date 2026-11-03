@@ -1,5 +1,5 @@
 import { formatLeads } from "@/lib/format";
-import { getFeaturedProduct } from "@/lib/products";
+import { getFeaturedProduct } from "@/lib/catalog";
 
 const previewRows = [
   ["Padaria do Mercado", "Centro", "validado"],
@@ -21,8 +21,8 @@ const places = [
   "Belvedere",
 ];
 
-export function Hero() {
-  const featured = getFeaturedProduct();
+export async function Hero() {
+  const featured = await getFeaturedProduct();
 
   return (
     <section>
@@ -63,10 +63,10 @@ export function Hero() {
               <span className="size-2 shrink-0 rounded-full bg-white/20" />
               <span className="size-2 shrink-0 rounded-full bg-white/20" />
               <span className="size-2 shrink-0 rounded-full bg-neon" />
-              <span className="truncate font-mono text-xs text-mute">{featured.fileName}</span>
+              <span className="truncate font-mono text-xs text-mute">{featured?.fileName ?? "leads.csv"}</span>
             </div>
             <span className="shrink-0 font-mono text-[11px] text-neon">
-              {formatLeads(featured.leads)} linhas
+              {formatLeads(featured?.leads ?? 0)} linhas
             </span>
           </div>
           <div className="sheet-mask px-4 py-3 font-mono text-xs">
