@@ -1,0 +1,26 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# next
+/.next/
+/out/
+
+# env — o exemplo versionado é .env.example
+.env
+.env.local
+.env.*.local
+
+# debug / os
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# listas reais de clientes não devem ir para o git
+# (as amostras fictícias em private/products/*.csv estão versionadas de propósito)
+# private/products/*.csv
