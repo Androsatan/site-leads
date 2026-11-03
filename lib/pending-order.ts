@@ -18,12 +18,31 @@ function orderPath(orderId: string) {
   return path.join(ROOT, `${orderId}.json`);
 }
 
+const READ_ONLY = new Set(["ENOENT", "EROFS", "EACCES", "EPERM", "ENOTDIR"]);
+
+/** Na Vercel o deploy é só leitura. O pedido local só existe onde o disco aceita a pasta. */
+export function canPersistOrders() {
+  return !process.env.VERCEL;
+}
+
 export async function savePendingOrder(order: PendingOrder) {
-  await mkdir(ROOT, { recursive: true });
-  const file = orderPath(order.orderId);
-  const temp = `${file}.${process.pid}.tmp`;
-  await writeFile(temp, `${JSON.stringify(order)}\n`, "utf8");
-  await rename(temp, file);
+  if (!canPersistOrders()) return false;
+
+  try {
+    await mkdir(ROOT, { recursive: true });
+    const file = orderPath(order.orderId);
+    const temp = `${file}.${process.pid}.tmp`;
+    await writeFile(temp, `${JSON.stringify(order)}\n`, "utf8");
+    await rename(temp, file);
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code && READ_ONLY.has(code)) {
+      console.error(`[checkout] pedido local não gravado (${code})`);
+      return false;
+    }
+    throw error;
+  }
 }
 
 export async function readPendingOrder(orderId: string): Promise<PendingOrder | null> {
