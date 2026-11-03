@@ -1,16 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { PixCheckout } from "@/components/pix-checkout";
 import { QuantityStepper } from "@/components/quantity-stepper";
 import { useCart } from "@/components/cart-provider";
 import { formatBRL, formatLeads } from "@/lib/format";
+import { checkoutPath } from "@/lib/order";
 import type { Product } from "@/lib/products";
 
 export function CartView({ products }: { products: Product[] }) {
   const cart = useCart();
-  const [paying, setPaying] = useState(false);
 
   const byId = new Map(products.map((product) => [product.id, product]));
   const detailed = cart.lines.flatMap((line) => {
@@ -71,20 +69,15 @@ export function CartView({ products }: { products: Product[] }) {
         <p className="text-[11px] font-medium tracking-[0.18em] text-mute">TOTAL</p>
         <p className="mt-3 text-5xl font-semibold tabular-nums tracking-[-0.04em]">{formatBRL(total)}</p>
         <p className="mt-2 text-xs tracking-wide text-mute">pagamento único</p>
-        {paying ? (
-          <PixCheckout
-            items={detailed.map((line) => ({ productId: line.productId, quantity: line.quantity }))}
-            onClose={() => setPaying(false)}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setPaying(true)}
-            className="mt-6 w-full cursor-pointer bg-neon px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-white"
-          >
-            Ir para o pagamento
-          </button>
-        )}
+        <Link
+          href={checkoutPath(
+            detailed.map((line) => ({ productId: line.productId, quantity: line.quantity })),
+            "carrinho",
+          )}
+          className="mt-6 block w-full bg-neon px-4 py-3 text-center text-sm font-semibold text-ink transition-colors hover:bg-white"
+        >
+          Ir para o pagamento
+        </Link>
         <Link href="/listas" className="mt-4 block text-center text-sm text-mute underline underline-offset-2">
           Continuar escolhendo leads
         </Link>

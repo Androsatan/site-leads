@@ -47,6 +47,12 @@ export function encodeOrder(lines: OrderLine[]) {
   return lines.map((line) => `${line.productId}:${line.quantity}`).join(",");
 }
 
+export function checkoutPath(lines: OrderLine[], origin?: "carrinho") {
+  const params = new URLSearchParams({ pedido: encodeOrder(lines) });
+  if (origin) params.set("origem", origin);
+  return `/checkout?${params.toString()}`;
+}
+
 /** Aceita `id:qtd,id:qtd` e também um id solto de pedidos antigos. */
 export function decodeOrder(reference: string): OrderLine[] | null {
   const value = reference.trim();
