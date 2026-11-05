@@ -49,7 +49,7 @@ export function QuantityStepper({
         disabled={disabled}
         value={draft}
         onChange={(event) => {
-          const next = event.target.value.replace(/\D/g, "").slice(0, 2);
+          const next = event.target.value.replace(/\D/g, "").slice(0, String(MAX_QUANTITY).length);
           if (/^\d+$/.test(next) && Number(next) > MAX_QUANTITY) {
             setDraft(String(MAX_QUANTITY));
             onChange(MAX_QUANTITY);
@@ -60,7 +60,7 @@ export function QuantityStepper({
           if (quantity) onChange(quantity);
         }}
         onBlur={() => commit(draft)}
-        className="h-full w-12 bg-transparent text-center text-sm tabular-nums outline-none disabled:text-mute"
+        className="h-full w-14 bg-transparent text-center text-sm tabular-nums outline-none disabled:text-mute"
       />
       <button
         type="button"

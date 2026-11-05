@@ -1,6 +1,6 @@
 /** Pedido cobrado no checkout. Preço e quantidade são conferidos no servidor. */
 
-export const MAX_QUANTITY = 20;
+export const MAX_QUANTITY = 999;
 
 const PRODUCT_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
