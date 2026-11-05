@@ -21,6 +21,14 @@ export function PixCheckout({
   const [payment, setPayment] = useState<PixPayment | null>(null);
   const [copied, setCopied] = useState(false);
   const errorId = useId();
+  const orderKey = items.map((item) => `${item.productId}:${item.quantity}`).join(",");
+  const [seenOrder, setSeenOrder] = useState(orderKey);
+
+  if (seenOrder !== orderKey) {
+    setSeenOrder(orderKey);
+    setPayment(null);
+    setCopied(false);
+  }
 
   async function pay() {
     setLoading(true);

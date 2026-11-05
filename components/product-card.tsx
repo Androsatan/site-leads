@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ProductActions } from "@/components/product-actions";
 import { formatBRL, formatLeads } from "@/lib/format";
 import { productSku, type Product } from "@/lib/products";
@@ -32,11 +33,11 @@ export function ProductCard({
 
   return (
     <article
-      className={`flex flex-col border border-line bg-panel/85 p-6 transition-colors hover:border-neon/40 ${
+      className={`group flex flex-col border border-line bg-panel/85 p-6 transition-colors hover:border-neon/40 ${
         featured ? "md:col-span-2 md:flex-row md:gap-10 md:p-8 xl:col-span-2" : ""
       }`}
     >
-      <div className={featured ? "md:flex-1" : "flex-1"}>
+      <Link href={`/listas/${product.id}`} className={`block ${featured ? "md:flex-1" : "flex-1"}`}>
         <div className="flex items-center justify-between gap-3">
           <p className="text-[11px] font-medium tracking-[0.18em] text-electric">
             {product.city.toUpperCase()} · {product.state}
@@ -47,7 +48,9 @@ export function ProductCard({
             <span className="font-mono text-[11px] tracking-[0.12em] text-mute">{productSku(product)}</span>
           )}
         </div>
-        <h3 className="mt-4 text-[1.7rem] font-semibold leading-tight tracking-[-0.03em]">{product.name}</h3>
+        <h3 className="mt-4 text-[1.7rem] font-semibold leading-tight tracking-[-0.03em] transition-colors group-hover:text-neon">
+          {product.name}
+        </h3>
         <div className="mt-4">
           <WhatsAppBadge />
         </div>
@@ -59,7 +62,8 @@ export function ProductCard({
             </li>
           ))}
         </ul>
-      </div>
+        <p className="mt-4 text-sm font-semibold text-neon">Ler mais</p>
+      </Link>
       <div
         className={`mt-8 flex flex-col justify-end ${
           featured ? "md:mt-0 md:w-72 md:border-l md:border-line md:pl-8" : ""

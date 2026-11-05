@@ -33,7 +33,8 @@
       "Bairro",
       "Especialidade"
     ],
-    "description": "Consultórios da Pampulha e do São Luiz, filtrados para quem vende para odontologia."
+    "description": "Consultórios da Pampulha e do São Luiz, filtrados para quem vende para odontologia.",
+    "featured": true
   },
   {
     "id": "imobiliarias-lourdes",
@@ -50,7 +51,8 @@
       "Bairro",
       "Site"
     ],
-    "description": "Imobiliárias de Lourdes e Santo Antônio, prontas para uma proposta direta no WhatsApp."
+    "description": "Imobiliárias de Lourdes e Santo Antônio, prontas para uma proposta direta no WhatsApp.",
+    "featured": true
   },
   {
     "id": "academias-buritis",
@@ -67,7 +69,8 @@
       "Bairro",
       "Instagram"
     ],
-    "description": "Academias e estúdios de Buritis e Estoril, com WhatsApp já validado."
+    "description": "Academias e estúdios de Buritis e Estoril, com WhatsApp já validado.",
+    "featured": true
   },
   {
     "id": "restaurantes-funcionarios",
