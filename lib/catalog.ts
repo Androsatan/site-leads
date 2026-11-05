@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, unlink, writeFile } from "fs/promises";
 import path from "path";
 import { seedProducts } from "@/lib/catalog-seed";
-import { deleteProductFile, writeProductFile } from "@/lib/product-file";
+import { deleteProductFile, readProductFile, writeProductFile } from "@/lib/product-file";
 import { isProductId } from "@/lib/order";
 import type { Product } from "@/lib/products";
 
@@ -18,6 +18,19 @@ export type NewProductInput = {
   highlight?: string;
   featured?: boolean;
   csv: Buffer;
+};
+
+export type ProductUpdate = {
+  name: string;
+  niche: string;
+  city: string;
+  state: string;
+  price: number;
+  description: string;
+  fields: string[];
+  highlight?: string;
+  featured?: boolean;
+  csv?: Buffer;
 };
 
 let queue: Promise<unknown> = Promise.resolve();
@@ -135,9 +148,7 @@ export function addProduct(input: NewProductInput) {
       ...(input.featured ? { featured: true } : {}),
     };
 
-    const next = input.featured
-      ? products.map((item) => ({ ...item, featured: false }))
-      : products.slice();
+    const next = products.slice();
     next.push(product);
 
     await writeProductFile(fileName, input.csv);
@@ -149,6 +160,76 @@ export function addProduct(input: NewProductInput) {
     }
 
     return product;
+  });
+}
+
+function withoutFeatured(product: Product): Product {
+  const next = { ...product };
+  delete next.featured;
+  return next;
+}
+
+function withoutHighlight(product: Product): Product {
+  const next = { ...product };
+  delete next.highlight;
+  return next;
+}
+
+export function updateProduct(id: string, input: ProductUpdate) {
+  return enqueue(async () => {
+    const products = await readAll();
+    const current = products.find((product) => product.id === id);
+    if (!current) throw new Error("Lead não encontrado.");
+
+    let leads = current.leads;
+    let previousCsv: Buffer | null = null;
+    if (input.csv) {
+      leads = countContacts(input.csv);
+      if (leads < 1) {
+        throw new Error("O CSV precisa ter um cabeçalho e ao menos um contato.");
+      }
+      previousCsv = await readProductFile(current.fileName);
+      await writeProductFile(current.fileName, input.csv);
+    }
+
+    let nextProduct: Product = {
+      ...current,
+      name: input.name,
+      niche: input.niche,
+      city: input.city,
+      state: input.state,
+      leads,
+      price: input.price,
+      fields: input.fields,
+      description: input.description,
+    };
+    nextProduct = input.highlight ? { ...nextProduct, highlight: input.highlight } : withoutHighlight(nextProduct);
+    nextProduct = input.featured ? { ...nextProduct, featured: true } : withoutFeatured(nextProduct);
+
+    const next = products.map((product) => (product.id === id ? nextProduct : product));
+    try {
+      await writeAll(next);
+    } catch (error) {
+      if (previousCsv) await writeProductFile(current.fileName, previousCsv);
+      throw error;
+    }
+
+    return nextProduct;
+  });
+}
+
+export function setProductFeatured(id: string, featured: boolean) {
+  return enqueue(async () => {
+    const products = await readAll();
+    if (!products.some((product) => product.id === id)) {
+      throw new Error("Lead não encontrado.");
+    }
+
+    const next = products.map((product) => {
+      if (product.id !== id) return product;
+      return featured ? { ...product, featured: true } : withoutFeatured(product);
+    });
+    await writeAll(next);
   });
 }
 

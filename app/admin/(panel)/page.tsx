@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { setFeatured } from "@/app/admin/actions";
 import { DeleteProductButton } from "@/components/delete-product-button";
 import { listProducts } from "@/lib/catalog";
 import { formatBRL, formatLeads } from "@/lib/format";
@@ -25,8 +26,8 @@ export default async function AdminPage() {
         </Link>
       </div>
       <p className="mt-4 max-w-2xl text-sm leading-6 text-mute">
-        Incluir ou remover um lead atualiza a loja neste computador. Na Vercel o disco não guarda
-        arquivo novo, então esta tela vale para o servidor local.
+        Incluir, editar ou destacar um lead atualiza a loja neste computador. Na Vercel o disco não
+        guarda arquivo novo, então esta tela vale para o servidor local.
       </p>
       {products.length === 0 ? (
         <p className="mt-10 border border-line bg-panel/85 px-6 py-12 text-center">Nenhum lead no catálogo.</p>
@@ -41,7 +42,22 @@ export default async function AdminPage() {
                   {product.featured ? " · destaque" : ""}
                 </p>
               </div>
-              <DeleteProductButton id={product.id} name={product.name} />
+              <div className="flex flex-wrap items-center gap-4">
+                <Link href={`/admin/${product.id}`} className="text-sm font-semibold text-neon">
+                  Editar
+                </Link>
+                <form action={setFeatured}>
+                  <input type="hidden" name="id" value={product.id} />
+                  <input type="hidden" name="featured" value={product.featured ? "0" : "1"} />
+                  <button
+                    type="submit"
+                    className="cursor-pointer text-sm text-paper underline underline-offset-2"
+                  >
+                    {product.featured ? "Tirar destaque" : "Destacar"}
+                  </button>
+                </form>
+                <DeleteProductButton id={product.id} name={product.name} />
+              </div>
             </li>
           ))}
         </ul>

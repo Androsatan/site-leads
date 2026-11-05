@@ -1,12 +1,12 @@
 [
   {
     "id": "padarias-centro-savassi",
-    "name": "Padarias — Centro e Savassi",
+    "name": "Padarias — Centro",
     "niche": "Padarias",
-    "city": "Centro e Savassi",
+    "city": "Centro",
     "state": "BH",
-    "leads": 180,
-    "price": 147,
+    "leads": 70,
+    "price": 10,
     "fileName": "padarias-centro-savassi.csv",
     "featured": true,
     "highlight": "Mais pedido",

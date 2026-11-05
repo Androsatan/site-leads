@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { createProduct } from "@/app/admin/actions";
 import { AdminProductForm } from "@/components/admin-product-form";
 
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ export default function NewProductPage() {
       <p className="mt-4 text-sm leading-6 text-mute">
         A quantidade de contatos sai das linhas do CSV, sem contar o cabeçalho.
       </p>
-      <AdminProductForm />
+      <AdminProductForm action={createProduct} submitLabel="Adicionar lead" />
     </main>
   );
 }
