@@ -23,7 +23,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
       <p className="text-[11px] font-medium tracking-[0.22em] text-neon">EDITAR LEAD</p>
       <h1 className="mt-3 text-4xl font-semibold tracking-[-0.045em]">{product.name}</h1>
       <p className="mt-4 text-sm leading-6 text-mute">
-        O endereço do lead na loja permanece o mesmo. A quantidade de contatos só muda se você enviar um CSV novo.
+        O endereço do lead na loja permanece o mesmo. O número de contatos do card é o campo Contatos.
       </p>
       <AdminProductForm action={saveProduct} product={product} submitLabel="Salvar alterações" />
     </main>

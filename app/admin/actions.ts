@@ -26,6 +26,7 @@ type ProductFields = {
   price: number;
   fields: string[];
   featured: boolean;
+  leads?: number;
 };
 
 function readProductFields(formData: FormData): ProductFields | { error: string } {
@@ -36,11 +37,16 @@ function readProductFields(formData: FormData): ProductFields | { error: string 
   const description = text(formData, "description", 400);
   const highlight = text(formData, "highlight", 24);
   const price = Number(String(formData.get("price") ?? "").trim());
-  const fields = String(formData.get("fields") ?? "")
-    .split(",")
-    .map((field) => field.trim().replace(/\s+/g, " "))
-    .filter(Boolean)
-    .slice(0, 12);
+  const leadsText = String(formData.get("leads") ?? "").trim();
+  const leads = leadsText === "" ? undefined : Number(leadsText);
+  const listed = formData.getAll("field").map((value) => String(value));
+  const source = listed.length > 0 ? listed : String(formData.get("fields") ?? "").split(",");
+  const fields: string[] = [];
+  for (const value of source) {
+    const field = value.trim().replace(/\s+/g, " ").slice(0, 40);
+    if (field && !fields.includes(field)) fields.push(field);
+    if (fields.length === 12) break;
+  }
 
   if (!name || !niche || !city || !state || !description) {
     return { error: "Preencha nome, nicho, cidade, estado e descrição." };
@@ -48,8 +54,11 @@ function readProductFields(formData: FormData): ProductFields | { error: string 
   if (!Number.isInteger(price) || price < 1 || price > 100000) {
     return { error: "O preço precisa ser um valor inteiro em reais." };
   }
+  if (leads !== undefined && (!Number.isInteger(leads) || leads < 1 || leads > 1_000_000)) {
+    return { error: "Informe a quantidade de contatos com um número inteiro." };
+  }
   if (fields.length === 0) {
-    return { error: "Informe ao menos uma coluna do CSV." };
+    return { error: "Informe ao menos uma tag." };
   }
 
   return {
@@ -62,6 +71,7 @@ function readProductFields(formData: FormData): ProductFields | { error: string 
     price,
     fields,
     featured: formData.get("featured") === "on",
+    leads,
   };
 }
 

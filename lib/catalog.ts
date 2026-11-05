@@ -17,6 +17,8 @@ export type NewProductInput = {
   fields: string[];
   highlight?: string;
   featured?: boolean;
+  /** Quantidade exibida no card. Sem isso, conta as linhas do CSV. */
+  leads?: number;
   csv: Buffer;
 };
 
@@ -30,6 +32,7 @@ export type ProductUpdate = {
   fields: string[];
   highlight?: string;
   featured?: boolean;
+  leads?: number;
   csv?: Buffer;
 };
 
@@ -118,10 +121,11 @@ function countContacts(csv: Buffer) {
 
 export function addProduct(input: NewProductInput) {
   return enqueue(async () => {
-    const leads = countContacts(input.csv);
-    if (leads < 1) {
+    const counted = countContacts(input.csv);
+    if (counted < 1) {
       throw new Error("O CSV precisa ter um cabeçalho e ao menos um contato.");
     }
+    const leads = input.leads ?? counted;
 
     const products = await readAll();
     let id = slugify(input.name);
@@ -181,13 +185,14 @@ export function updateProduct(id: string, input: ProductUpdate) {
     const current = products.find((product) => product.id === id);
     if (!current) throw new Error("Lead não encontrado.");
 
-    let leads = current.leads;
+    let leads = input.leads ?? current.leads;
     let previousCsv: Buffer | null = null;
     if (input.csv) {
-      leads = countContacts(input.csv);
-      if (leads < 1) {
+      const counted = countContacts(input.csv);
+      if (counted < 1) {
         throw new Error("O CSV precisa ter um cabeçalho e ao menos um contato.");
       }
+      if (input.leads === undefined) leads = counted;
       previousCsv = await readProductFile(current.fileName);
       await writeProductFile(current.fileName, input.csv);
     }
