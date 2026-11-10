@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
-import { requestCheckout, type PixPayment } from "@/lib/checkout-client";
+import { useEffect, useId, useState } from "react";
+import { requestCheckout, requestPixStatus, type PixPayment } from "@/lib/checkout-client";
 import type { OrderLine } from "@/lib/order";
 
 const fieldClass = "mt-2 w-full border border-line bg-ink px-3 py-3 text-sm text-paper outline-none focus:border-neon";
@@ -20,6 +20,8 @@ export function PixCheckout({
   const [message, setMessage] = useState("");
   const [payment, setPayment] = useState<PixPayment | null>(null);
   const [copied, setCopied] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [waitingNote, setWaitingNote] = useState("");
   const errorId = useId();
   const orderKey = items.map((item) => `${item.productId}:${item.quantity}`).join(",");
   const [seenOrder, setSeenOrder] = useState(orderKey);
@@ -28,7 +30,42 @@ export function PixCheckout({
     setSeenOrder(orderKey);
     setPayment(null);
     setCopied(false);
+    setConfirmed(false);
+    setWaitingNote("");
   }
+
+  useEffect(() => {
+    const transactionId = payment?.transactionId;
+    if (!transactionId || confirmed) return;
+
+    let stopped = false;
+
+    async function tick() {
+      try {
+        const result = await requestPixStatus(transactionId);
+        if (stopped) return;
+        if (result.paid) {
+          setConfirmed(true);
+          setWaitingNote("");
+          return;
+        }
+        if (result.status === "canceled" || result.status === "refunded") {
+          setWaitingNote("Este Pix foi cancelado. Atualize a página para gerar outro código.");
+          return;
+        }
+        setWaitingNote("");
+      } catch {
+        if (!stopped) setWaitingNote("Ainda não foi possível consultar o pagamento. O QR continua válido.");
+      }
+    }
+
+    void tick();
+    const timer = window.setInterval(() => void tick(), 4000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [payment?.transactionId, confirmed]);
 
   async function pay() {
     setLoading(true);
@@ -55,12 +92,24 @@ export function PixCheckout({
     }
   }
 
+  if (payment && confirmed) {
+    return (
+      <div className="mt-4 border border-line bg-ink p-4" role="status">
+        <p className="text-[11px] tracking-[0.16em] text-neon">PIX</p>
+        <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em]">Pagamento confirmado!</h2>
+        <p className="mt-2 text-sm leading-6 text-mute">
+          Os leads serão enviados para o e-mail informado em alguns instantes.
+        </p>
+      </div>
+    );
+  }
+
   if (payment) {
     return (
       <div className="mt-4 border border-line bg-ink p-4">
         <p className="text-[11px] tracking-[0.16em] text-neon">PIX</p>
         <p className="mt-2 text-sm leading-6 text-mute">
-          Pague com o QR Code ou com o código. O CSV chega no e-mail quando o pagamento for confirmado.
+          Pague com o QR Code ou com o código. Esta tela muda sozinha quando o pagamento for confirmado.
         </p>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -81,6 +130,9 @@ export function PixCheckout({
         >
           {copied ? "Código copiado" : "Copiar código Pix"}
         </button>
+        <p className="mt-3 text-sm leading-5 text-mute" aria-live="polite">
+          {waitingNote || "Aguardando a confirmação do pagamento…"}
+        </p>
       </div>
     );
   }

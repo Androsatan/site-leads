@@ -57,6 +57,7 @@ app/
   sucesso|pendente|falha/  telas antigas; o Pix atual não redireciona para elas
   admin/                   login e painel (adicionar / remover produto)
   api/checkout/route.ts    cria a cobrança Pix
+  api/checkout/status/     a tela consulta se o Pix já foi pago
   api/webhook/route.ts     confirma o pagamento e envia o CSV
   api/download/route.ts    baixa o CSV com link assinado
 components/                UI. Catálogo e checkout não importam fs no cliente
@@ -77,7 +78,8 @@ private/
 | `/checkout?pedido=id:qtd,id:qtd` | Resumo + formulário Pix. `origem=carrinho` faz "Voltar" ir para `/carrinho` |
 | `/admin/login` | Senha `ADMIN_PASSWORD` |
 | `/admin` | Lista produtos. `/admin/novo` cria um |
-| `POST /api/checkout` | Gera Pix |
+| `POST /api/checkout` | Gera Pix. A resposta inclui `transaction_id` para a tela consultar |
+| `GET /api/checkout/status?transaction=` | `paid` se o gateway estiver em `paid` ou `completed`. Não envia o CSV |
 | `POST /api/webhook` | Aviso do gateway, form-urlencoded |
 | `GET /api/download?token=` | CSV se o HMAC e a expiração forem válidos |
 
@@ -128,7 +130,7 @@ Fluxo:
 3. `order_id` (máx. 64) carrega a referência `id:qtd,id:qtd`, com um sufixo `|` + 6 hex quando cabe, para cobranças iguais não colidirem. Se o texto não cabe, os ids vão compactados (`~` + prefixo de SHA-256, reversível pelo catálogo). Se nem assim couber, o checkout responde 400. Uma cópia segue em `private/orders/` onde o disco permite; na Vercel o webhook não depende desse arquivo.
 4. `POST https://pix.paghiper.com/invoice/create/` com `apiKey`, `token`, pagador, `notification_url` (`NEXT_PUBLIC_APP_URL` + `/api/webhook`), `days_due_date: 1` e os itens.
 5. Só devolve o Pix se o HTTP for ok, `result === "success"`, o EMV começar com `000201` e o valor em centavos bater com o catálogo.
-6. Resposta ao frontend: `{ pix_code, qrcode_image_url }`. O QR é uma URL `https://pix.paghiper.com/...` ou, se ela não vier, um `data:image/png;base64,...` do `qrcode_base64`.
+6. Resposta ao frontend: `{ pix_code, qrcode_image_url, transaction_id }`. O QR é uma URL `https://pix.paghiper.com/...` ou, se ela não vier, um `data:image/png;base64,...` do `qrcode_base64`. A tela consulta `GET /api/checkout/status` a cada 4 segundos e, quando o Pix está pago, troca o QR por "Pagamento confirmado!".
 
 `components/pix-checkout.tsx` mostra o formulário e, depois, o QR e o copia e cola. O cliente está em `lib/checkout-client.ts`.
 

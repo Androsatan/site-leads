@@ -59,16 +59,39 @@ export async function fulfillPaidOrder(order: PaidOrder): Promise<FulfillmentRes
     resolved.push({ product, quantity: line.quantity });
   }
 
-  const sent = await sendDeliveryEmail({
-    to: email,
-    buyerName: order.buyerName?.trim() || undefined,
-    lines: resolved,
+  const leads = resolved.map((line) => line.product.id).join(",");
+  console.info("[fulfillment] chamando Resend", {
     paymentId: order.paymentId,
+    reference: order.reference,
+    to: maskEmail(email),
+    leads,
   });
 
-  console.info(
-    `[webhook] CSV enviado pagamento=${order.paymentId} leads=${resolved.map((line) => line.product.id).join(",")} para=${maskEmail(email)}`,
-  );
+  try {
+    const sent = await sendDeliveryEmail({
+      to: email,
+      buyerName: order.buyerName?.trim() || undefined,
+      lines: resolved,
+      paymentId: order.paymentId,
+    });
 
-  return { outcome: "sent", productId: resolved[0].product.id, emailId: sent?.id };
+    console.info("[fulfillment] CSV enviado", {
+      paymentId: order.paymentId,
+      leads,
+      to: maskEmail(email),
+      emailId: sent?.id ?? null,
+    });
+
+    return { outcome: "sent", productId: resolved[0].product.id, emailId: sent?.id };
+  } catch (error) {
+    console.error("[fulfillment] falha ao enviar o CSV", {
+      paymentId: order.paymentId,
+      reference: order.reference,
+      to: maskEmail(email),
+      leads,
+      name: error instanceof Error ? error.name : "unknown",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 }

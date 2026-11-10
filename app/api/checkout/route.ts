@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { appUrl, MissingEnvError } from "@/lib/env";
+import { appUrl, isHttpsApp, MissingEnvError } from "@/lib/env";
 import { packOrderId } from "@/lib/gateway-order";
 import { encodeOrder, isProductId, mergeLines, parseQuantity, type OrderLine } from "@/lib/order";
 import { getProduct } from "@/lib/catalog";
@@ -140,22 +140,42 @@ export async function POST(request: Request) {
     );
   }
 
+  const notificationUrl = `${appUrl()}/api/webhook`;
+  console.info("[checkout] criando cobrança", {
+    orderId,
+    reference,
+    totalCents,
+    items: order.lines.length,
+    notificationUrl,
+  });
+  if (!isHttpsApp()) {
+    console.error("[checkout] notification_url sem HTTPS. O PagHiper não chama o webhook nesta origem.", {
+      notificationUrl,
+    });
+  }
+
   try {
     const charge = await createPixInvoice({
       orderId,
       payerEmail: payer.email,
       payerName: payer.name,
       payerCpfCnpj: payer.cpfCnpj,
-      notificationUrl: `${appUrl()}/api/webhook`,
+      notificationUrl,
       items,
     });
 
     if (!charge.transactionId || charge.valueCents !== totalCents) {
-      console.error("[checkout] cobrança divergente", { orderId, expected: totalCents, received: charge.valueCents });
+      console.error("[checkout] cobrança divergente", {
+        orderId,
+        transactionId: charge.transactionId || null,
+        expected: totalCents,
+        received: charge.valueCents,
+        notificationUrl,
+      });
       return NextResponse.json({ error: "O valor do Pix não confere com o pedido." }, { status: 502 });
     }
 
-    await savePendingOrder({
+    const saved = await savePendingOrder({
       orderId,
       reference,
       email: payer.email,
@@ -163,20 +183,37 @@ export async function POST(request: Request) {
       totalCents,
       createdAt: new Date().toISOString(),
     });
+    if (!saved) {
+      console.info("[checkout] pedido local não gravado; a entrega usa o order_id", { orderId });
+    }
+
+    console.info("[checkout] Pix criado", {
+      transactionId: charge.transactionId,
+      orderId,
+      totalCents,
+      notificationUrl,
+    });
 
     return NextResponse.json({
       pix_code: charge.pixCode,
       qrcode_image_url: charge.qrcodeImageUrl,
+      transaction_id: charge.transactionId,
     });
   } catch (error) {
     if (error instanceof MissingEnvError) {
+      console.error("[checkout] variável ausente", { envName: error.envName, notificationUrl });
       return NextResponse.json(
         { error: `Configure ${error.envName} no arquivo .env e reinicie o servidor.` },
         { status: 503 },
       );
     }
 
-    console.error("[checkout]", error instanceof Error ? error.message : error);
+    console.error("[checkout] falha ao gerar o Pix", {
+      orderId,
+      notificationUrl,
+      name: error instanceof Error ? error.name : "unknown",
+      message: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { error: error instanceof PagHiperError ? error.message : "Não foi possível gerar o Pix." },
       { status: 502 },

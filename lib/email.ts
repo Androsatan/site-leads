@@ -155,8 +155,18 @@ function renderDeliveryEmail(input: {
   return { html, text };
 }
 
-/** Remetente de testes do Resend. Sem domínio verificado, só entrega no e-mail da conta. */
+/**
+ * Remetente de testes do Resend.
+ * Sem domínio verificado, este endereço só entrega no e-mail da conta do Resend.
+ * Qualquer outro destinatário é recusado ou não sai da caixa de teste.
+ */
 const RESEND_FROM = "LeadSfera <onboarding@resend.dev>";
+
+function maskEmail(email: string) {
+  const [user, domain] = email.split("@");
+  if (!user || !domain) return "email-invalido";
+  return `${user.slice(0, 2)}***@${domain}`;
+}
 
 export async function sendDeliveryEmail(input: DeliveryInput) {
   const resend = new Resend(requireEnv("RESEND_API_KEY"));
@@ -199,8 +209,23 @@ export async function sendDeliveryEmail(input: DeliveryInput) {
   );
 
   if (error) {
+    console.error("[email] Resend recusou o envio", {
+      paymentId: input.paymentId,
+      to: maskEmail(input.to),
+      from: RESEND_FROM,
+      name: error.name,
+      statusCode: error.statusCode ?? null,
+      message: error.message,
+    });
     throw new Error(error.message);
   }
+
+  console.info("[email] Resend aceitou o envio", {
+    paymentId: input.paymentId,
+    to: maskEmail(input.to),
+    from: RESEND_FROM,
+    emailId: data?.id ?? null,
+  });
 
   return data;
 }
