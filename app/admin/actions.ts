@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { isAdmin, checkAdminPassword, endAdminSession, startAdminSession, adminPasswordConfigured } from "@/lib/admin-session";
 import { addProduct, removeProduct, setProductFeatured, updateProduct } from "@/lib/catalog";
+import { addMenuNiche, removeMenuNiche as deleteMenuNiche } from "@/lib/menu-niches";
 import { isProductId } from "@/lib/order";
 
 const CSV_LIMIT = 5 * 1024 * 1024;
@@ -173,6 +174,30 @@ export async function setFeatured(formData: FormData) {
     }
   }
   redirect("/admin");
+}
+
+export async function createMenuNiche(
+  _previous: { error: string },
+  formData: FormData,
+): Promise<{ error: string }> {
+  await requireAdmin();
+  try {
+    await addMenuNiche(String(formData.get("name") ?? ""));
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Não foi possível adicionar o submenu." };
+  }
+  redirect("/admin#submenus");
+}
+
+export async function removeMenuNiche(formData: FormData) {
+  await requireAdmin();
+  const slug = String(formData.get("slug") ?? "");
+  try {
+    await deleteMenuNiche(slug);
+  } catch (error) {
+    console.error("[admin] remover submenu", error);
+  }
+  redirect("/admin#submenus");
 }
 
 export async function deleteProduct(formData: FormData) {

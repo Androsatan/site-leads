@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { setFeatured } from "@/app/admin/actions";
+import { AdminNicheForm, RemoveNicheButton } from "@/components/admin-niches";
 import { DeleteProductButton } from "@/components/delete-product-button";
 import { listProducts } from "@/lib/catalog";
 import { formatBRL, formatLeads } from "@/lib/format";
+import { listMenuNiches } from "@/lib/menu-niches";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminPage() {
-  const products = await listProducts();
+  const [products, niches] = await Promise.all([listProducts(), listMenuNiches()]);
 
   return (
     <main className="mx-auto max-w-[1120px] px-5 py-16">
@@ -62,6 +64,29 @@ export default async function AdminPage() {
           ))}
         </ul>
       )}
+      <section id="submenus" className="mt-16 scroll-mt-24 border border-line bg-panel/85 px-5 py-6">
+        <h2 className="text-2xl font-semibold tracking-[-0.03em]">Submenus de Leads</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-mute">
+          Estes nomes aparecem ao passar o mouse em Leads. Remover tira o submenu. Os leads desse nicho
+          continuam na loja e voltam ao menu se o mesmo nome for adicionado de novo.
+        </p>
+        <AdminNicheForm />
+        {niches.length === 0 ? (
+          <p className="mt-6 text-sm text-mute">Nenhum submenu no menu.</p>
+        ) : (
+          <ul className="mt-6 divide-y divide-line border border-line">
+            {niches.map((niche) => (
+              <li key={niche.slug} className="flex items-center justify-between gap-4 px-4 py-3">
+                <div>
+                  <p className="font-semibold">{niche.name}</p>
+                  <p className="mt-1 text-sm text-mute">/nichos/{niche.slug}</p>
+                </div>
+                <RemoveNicheButton slug={niche.slug} name={niche.name} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }
