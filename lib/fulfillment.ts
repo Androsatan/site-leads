@@ -59,7 +59,9 @@ export async function fulfillPaidOrder(order: PaidOrder): Promise<FulfillmentRes
     resolved.push({ product, quantity: line.quantity });
   }
 
-  const leads = resolved.map((line) => line.product.id).join(",");
+  const leads = resolved
+    .map((line) => `${line.product.id}:${line.product.leads}x${line.quantity}`)
+    .join(",");
   console.info("[fulfillment] chamando Resend", {
     paymentId: order.paymentId,
     reference: order.reference,

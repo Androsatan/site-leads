@@ -8,14 +8,17 @@ export const DOWNLOAD_TTL_DAYS = 14;
 type DownloadPayload = {
   pid: string;
   pay: string;
+  /** Contatos sorteados: leads do produto × quantidade. */
+  n: number;
   exp: number;
 };
 
-export function createDownloadUrl(productId: string, paymentId: string) {
+export function createDownloadUrl(productId: string, paymentId: string, contacts: number) {
   const secret = requireEnv("DOWNLOAD_TOKEN_SECRET");
   const payload: DownloadPayload = {
     pid: productId,
     pay: paymentId,
+    n: contacts,
     exp: Math.floor(Date.now() / 1000) + TTL_SECONDS,
   };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -38,9 +41,10 @@ export function readDownloadToken(token: string): DownloadPayload | null {
 
   try {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as Partial<DownloadPayload>;
-    if (!payload.pid || !payload.pay || typeof payload.exp !== "number") return null;
+    if (!payload.pid || !payload.pay || typeof payload.exp !== "number" || typeof payload.n !== "number") return null;
+    if (!Number.isInteger(payload.n) || payload.n < 1 || !Number.isSafeInteger(payload.n)) return null;
     if (payload.exp < Math.floor(Date.now() / 1000)) return null;
-    return { pid: payload.pid, pay: payload.pay, exp: payload.exp };
+    return { pid: payload.pid, pay: payload.pay, n: payload.n, exp: payload.exp };
   } catch {
     return null;
   }

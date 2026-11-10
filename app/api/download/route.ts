@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { buildLeadSample } from "@/lib/csv-sample";
 import { readDownloadToken } from "@/lib/download-token";
-import { readProductFile } from "@/lib/product-file";
 import { getProduct } from "@/lib/catalog";
 import { site } from "@/lib/site";
 
@@ -54,8 +54,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const file = await readProductFile(product.fileName);
-    return new NextResponse(new Uint8Array(file), {
+    const sample = await buildLeadSample({
+      fileName: product.fileName,
+      requested: payload.n,
+      seedKey: `${payload.pay}:${payload.pid}`,
+    });
+    return new NextResponse(new Uint8Array(sample.csv), {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="${product.fileName}"`,

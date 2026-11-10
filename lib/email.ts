@@ -1,20 +1,25 @@
 import { Resend } from "resend";
 import { DOWNLOAD_TTL_DAYS, createDownloadUrl } from "@/lib/download-token";
+import { buildLeadSample, sampleSize } from "@/lib/csv-sample";
 import { requireEnv } from "@/lib/env";
 import { formatBRL } from "@/lib/format";
-import { readProductFile } from "@/lib/product-file";
 import type { Product } from "@/lib/products";
 import { site } from "@/lib/site";
 
-type DeliveryLine = {
+type OrderLineMail = {
   product: Product;
   quantity: number;
+};
+
+type DeliveryLine = OrderLineMail & {
+  /** Contatos sorteados neste arquivo. */
+  contacts: number;
 };
 
 type DeliveryInput = {
   to: string;
   buyerName?: string;
-  lines: DeliveryLine[];
+  lines: OrderLineMail[];
   paymentId: string;
 };
 
@@ -45,7 +50,7 @@ function renderDeliveryEmail(input: {
       const name = escapeHtml(line.product.name);
       const linePrice = escapeHtml(formatBRL(line.product.price * line.quantity));
       return `<tr>
-                    <td style="padding:14px 0;border-top:1px solid #ece7dc;color:#6d6a62;">${name}<br />${line.quantity} × ${escapeHtml(formatBRL(line.product.price))}</td>
+                    <td style="padding:14px 0;border-top:1px solid #ece7dc;color:#6d6a62;">${name}<br />${line.quantity} × ${escapeHtml(formatBRL(line.product.price))}<br />${line.contacts.toLocaleString("pt-BR")} contatos no arquivo</td>
                     <td style="padding:14px 0;border-top:1px solid #ece7dc;text-align:right;vertical-align:top;">${linePrice}</td>
                   </tr>`;
     })
@@ -132,7 +137,7 @@ function renderDeliveryEmail(input: {
 
   const textLines = input.lines.map(
     (line) =>
-      `- ${line.product.name}: ${line.quantity} × ${formatBRL(line.product.price)} = ${formatBRL(line.product.price * line.quantity)}`,
+      `- ${line.product.name}: ${line.quantity} × ${formatBRL(line.product.price)} = ${formatBRL(line.product.price * line.quantity)} (${line.contacts.toLocaleString("pt-BR")} contatos no arquivo)`,
   );
   const textLinks = input.downloads.map((item) => `${item.name}: ${item.url}`);
   const text = [
@@ -155,12 +160,10 @@ function renderDeliveryEmail(input: {
   return { html, text };
 }
 
-/**
- * Remetente de testes do Resend.
- * Sem domínio verificado, este endereço só entrega no e-mail da conta do Resend.
- * Qualquer outro destinatário é recusado ou não sai da caixa de teste.
- */
-const RESEND_FROM = "LeadSfera <onboarding@resend.dev>";
+/** Domínio leadsfera.com.br verificado no Resend. */
+const RESEND_FROM = "LeadSfera <noreply@leadsfera.com.br>";
+/** Cópia oculta. O destinatário do e-mail não vê este endereço. */
+const RESEND_BCC = "leadsferab2b@gmail.com";
 
 function maskEmail(email: string) {
   const [user, domain] = email.split("@");
@@ -170,33 +173,51 @@ function maskEmail(email: string) {
 
 export async function sendDeliveryEmail(input: DeliveryInput) {
   const resend = new Resend(requireEnv("RESEND_API_KEY"));
-  const downloads = input.lines.map((line) => ({
-    name: line.product.name,
-    url: createDownloadUrl(line.product.id, input.paymentId),
-  }));
-  const attachments = await Promise.all(
-    input.lines.map(async (line) => ({
-      filename: line.product.fileName,
-      content: await readProductFile(line.product.fileName),
-      contentType: "text/csv" as const,
-    })),
+  const prepared = await Promise.all(
+    input.lines.map(async (line) => {
+      const requested = sampleSize(line.product.leads, line.quantity);
+      if (!requested) {
+        throw new Error(`Quantidade de contatos inválida para ${line.product.id}.`);
+      }
+      const sample = await buildLeadSample({
+        fileName: line.product.fileName,
+        requested,
+        seedKey: `${input.paymentId}:${line.product.id}`,
+      });
+      return {
+        line: { ...line, contacts: sample.sent },
+        csv: sample.csv,
+        requested,
+      };
+    }),
   );
+  const lines = prepared.map((item) => item.line);
+  const downloads = lines.map((line, index) => ({
+    name: line.product.name,
+    url: createDownloadUrl(line.product.id, input.paymentId, prepared[index].requested),
+  }));
+  const attachments = prepared.map((item) => ({
+    filename: item.line.product.fileName,
+    content: item.csv,
+    contentType: "text/csv" as const,
+  }));
   const greeting = input.buyerName ? `Olá, ${input.buyerName}.` : "Olá.";
   const rendered = renderDeliveryEmail({
     greeting,
-    lines: input.lines,
+    lines,
     paymentId: input.paymentId,
     downloads,
   });
   const subject =
-    input.lines.length === 1
-      ? `Seu CSV chegou — ${input.lines[0].product.name}`
-      : `Seus CSVs chegaram — ${input.lines.length} leads`;
+    lines.length === 1
+      ? `Seu CSV chegou — ${lines[0].product.name}`
+      : `Seus CSVs chegaram — ${lines.length} leads`;
 
   const { data, error } = await resend.emails.send(
     {
       from: RESEND_FROM,
       to: input.to,
+      bcc: RESEND_BCC,
       subject,
       html: rendered.html,
       text: rendered.text,
