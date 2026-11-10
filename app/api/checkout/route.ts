@@ -1,6 +1,6 @@
-import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { appUrl, MissingEnvError } from "@/lib/env";
+import { packOrderId } from "@/lib/gateway-order";
 import { encodeOrder, isProductId, mergeLines, parseQuantity, type OrderLine } from "@/lib/order";
 import { getProduct } from "@/lib/catalog";
 import { createPixInvoice, PagHiperError, type PixChargeItem } from "@/lib/paghiper";
@@ -127,8 +127,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "O Pix exige no mínimo R$ 3,00." }, { status: 400 });
   }
 
-  const orderId = randomUUID();
   const reference = encodeOrder(order.lines);
+  const orderId = await packOrderId(reference);
+  if (!orderId) {
+    console.error("[checkout] referência não cabe no order_id", {
+      items: order.lines.length,
+      length: reference.length,
+    });
+    return NextResponse.json(
+      { error: "Esse pedido não cabe no Pix. Remova um lead e tente de novo." },
+      { status: 400 },
+    );
+  }
 
   try {
     const charge = await createPixInvoice({

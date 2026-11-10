@@ -1,7 +1,8 @@
 import { createHash, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { MissingEnvError } from "@/lib/env";
-import { fulfillPaidOrder } from "@/lib/fulfillment";
+import { quotedTotalCents, fulfillPaidOrder } from "@/lib/fulfillment";
+import { unpackOrderId } from "@/lib/gateway-order";
 import { confirmPixNotification, fetchPixStatus, PagHiperError } from "@/lib/paghiper";
 import { readPendingOrder } from "@/lib/pending-order";
 
@@ -60,25 +61,59 @@ export async function POST(request: Request) {
     if (notice.status !== status.status || notice.valueCents !== status.valueCents) {
       return NextResponse.json({ error: "Status divergente." }, { status: 409 });
     }
+    if (status.orderId && status.orderId !== notice.orderId) {
+      return NextResponse.json({ error: "Pedido divergente." }, { status: 409 });
+    }
     if (!PAID.has(notice.status)) {
       return NextResponse.json({ received: true, status: notice.status });
     }
 
     const pending = await readPendingOrder(notice.orderId);
-    if (!pending) {
-      console.error(`[webhook] pedido local ausente order=${notice.orderId}`);
-      return NextResponse.json({ error: "Pedido não encontrado." }, { status: 500 });
-    }
-    if (pending.totalCents !== notice.valueCents || pending.email !== notice.payerEmail) {
+    const unpacked = await unpackOrderId(notice.orderId);
+
+    if (pending && (pending.totalCents !== notice.valueCents || pending.email !== notice.payerEmail)) {
       console.error(`[webhook] pedido não confere order=${notice.orderId}`);
       return NextResponse.json({ error: "Pedido não confere." }, { status: 409 });
+    }
+    if (pending && unpacked.kind === "reference" && unpacked.reference !== pending.reference) {
+      console.error(`[webhook] referência não confere order=${notice.orderId}`);
+      return NextResponse.json({ error: "Pedido não confere." }, { status: 409 });
+    }
+
+    let reference = pending?.reference ?? "";
+    let email = pending?.email ?? "";
+    let buyerName = pending?.name;
+
+    if (!pending) {
+      if (unpacked.kind === "unknown") {
+        console.error(`[webhook] lead desconhecido order=${notice.orderId}`);
+        return NextResponse.json({ received: true, status: notice.status });
+      }
+      if (unpacked.kind !== "reference") {
+        console.error(`[webhook] pedido local ausente order=${notice.orderId}`);
+        return NextResponse.json({ error: "Pedido não encontrado." }, { status: 500 });
+      }
+
+      const quoted = await quotedTotalCents(unpacked.reference);
+      if (quoted === null) {
+        console.error(`[webhook] lead desconhecido order=${notice.orderId}`);
+        return NextResponse.json({ received: true, status: notice.status });
+      }
+      if (quoted !== notice.valueCents) {
+        console.error(`[webhook] pedido não confere order=${notice.orderId}`);
+        return NextResponse.json({ error: "Pedido não confere." }, { status: 409 });
+      }
+
+      reference = unpacked.reference;
+      email = notice.payerEmail;
+      buyerName = notice.payerName;
     }
 
     const result = await fulfillPaidOrder({
       paymentId: notice.transactionId,
-      email: pending.email,
-      buyerName: pending.name,
-      reference: pending.reference,
+      email,
+      buyerName,
+      reference,
     });
 
     if (result.outcome === "missing-email") {

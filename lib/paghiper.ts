@@ -188,6 +188,7 @@ export async function fetchPixStatus(transactionId: string) {
     status: asText(status.status).toLowerCase(),
     valueCents: Number(status.value_cents),
     transactionId: asText(status.transaction_id) || transactionId,
+    orderId: asText(status.order_id),
   };
 }
 

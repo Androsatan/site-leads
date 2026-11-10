@@ -1,8 +1,11 @@
+import { createHash } from "crypto";
 import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import path from "path";
 
 const ROOT = path.join(process.cwd(), "private", "orders");
-const ORDER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** UUID antigo ou order_id com a referência (`id:qtd`, nonce e forma `~hash`). */
+const ORDER_ID = /^[a-z0-9~|:,-]{1,64}$/i;
 
 export type PendingOrder = {
   orderId: string;
@@ -13,9 +16,14 @@ export type PendingOrder = {
   createdAt: string;
 };
 
+function orderFileName(orderId: string) {
+  if (UUID.test(orderId)) return orderId;
+  return createHash("sha256").update(orderId).digest("hex");
+}
+
 function orderPath(orderId: string) {
   if (!ORDER_ID.test(orderId)) throw new Error("Pedido inválido.");
-  return path.join(ROOT, `${orderId}.json`);
+  return path.join(ROOT, `${orderFileName(orderId)}.json`);
 }
 
 const READ_ONLY = new Set(["ENOENT", "EROFS", "EACCES", "EPERM", "ENOTDIR"]);

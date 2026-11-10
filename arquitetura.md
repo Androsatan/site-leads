@@ -64,7 +64,7 @@ lib/                       regras de servidor e tipos compartilhados
 private/
   catalog.json             produtos (criado a partir do seed se não existir)
   products/*.csv           arquivos vendidos
-  orders/{uuid}.json       pedido pendente; gitignored
+  orders/*.json            pedido pendente (fallback local); gitignored
 ```
 
 ## Rotas
@@ -125,7 +125,7 @@ Fluxo:
 
 1. Monta os itens com o preço do catálogo. `price_cents` é string de `reais * 100`.
 2. Recusa total abaixo de R$ 3,00 (300 centavos). É o mínimo do Pix nesse gateway.
-3. `order_id` enviado ao gateway é `crypto.randomUUID()`. A referência `id:qtd` fica em `private/orders/{uuid}.json` porque o `order_id` do gateway tem limite de 64 caracteres.
+3. `order_id` (máx. 64) carrega a referência `id:qtd,id:qtd`, com um sufixo `|` + 6 hex quando cabe, para cobranças iguais não colidirem. Se o texto não cabe, os ids vão compactados (`~` + prefixo de SHA-256, reversível pelo catálogo). Se nem assim couber, o checkout responde 400. Uma cópia segue em `private/orders/` onde o disco permite; na Vercel o webhook não depende desse arquivo.
 4. `POST https://pix.paghiper.com/invoice/create/` com `apiKey`, `token`, pagador, `notification_url` (`NEXT_PUBLIC_APP_URL` + `/api/webhook`), `days_due_date: 1` e os itens.
 5. Só devolve o Pix se o HTTP for ok, `result === "success"`, o EMV começar com `000201` e o valor em centavos bater com o catálogo.
 6. Resposta ao frontend: `{ pix_code, qrcode_image_url }`. O QR é uma URL `https://pix.paghiper.com/...` ou, se ela não vier, um `data:image/png;base64,...` do `qrcode_base64`.
@@ -143,7 +143,7 @@ A `apiKey` e o token que chegam nesse POST não autenticam a entrega. Se a apiKe
 1. `POST https://pix.paghiper.com/invoice/notification/` com `transaction_id` e `notification_id`. É essa chamada que devolve pedido, pagador, valor e status. O endpoint `invoice/status/` não consulta por `notification_id`.
 2. `POST https://pix.paghiper.com/invoice/status/` com `transaction_id`.
 
-O CSV só sai se as duas respostas concordarem em `paid` ou `completed`, no `transaction_id` e no valor. Aí o pedido local precisa existir, o valor tem de bater e o e-mail do gateway tem de ser o e-mail salvo.
+O CSV só sai se as duas respostas concordarem em `paid` ou `completed`, no `transaction_id` e no valor. A referência dos itens sai do `order_id`. Se o pedido local existir, o valor e o e-mail têm de bater com o que foi salvo (cobranças antigas, só com UUID, continuam dependendo desse arquivo). Sem o arquivo, o total é recalculado pelo catálogo e o e-mail é o que a API do gateway confirmou.
 
 `lib/fulfillment.ts` → `fulfillPaidOrder({ paymentId, email, buyerName, reference })` → `lib/email.ts`.
 
@@ -156,7 +156,7 @@ Status ainda não pago responde 200 para o gateway não ficar retentando. Pedido
 
 O localhost não recebe o POST do gateway. O CSV automático só acontece quando `NEXT_PUBLIC_APP_URL` é HTTPS público. Gerar o QR em local funciona.
 
-`private/orders` é disco local. Na Vercel o arquivo do checkout não está disponível para o webhook de outra instância. Não há banco. Não adicionar um sem pedido.
+`private/orders` é disco local e só serve de fallback. Na Vercel a entrega usa a referência que foi no `order_id`. Não há banco. Não adicionar um sem pedido.
 
 ## Admin
 

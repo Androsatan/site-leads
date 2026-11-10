@@ -21,6 +21,20 @@ function maskEmail(email: string) {
   return `${user.slice(0, 2)}***@${domain}`;
 }
 
+/** Total em centavos pelo catálogo atual. `null` se a referência ou algum lead não existir. */
+export async function quotedTotalCents(reference: string) {
+  const lines = decodeOrder(reference);
+  if (!lines) return null;
+
+  let total = 0;
+  for (const line of lines) {
+    const product = await getProduct(line.productId);
+    if (!product) return null;
+    total += product.price * 100 * line.quantity;
+  }
+  return total;
+}
+
 /**
  * Envia o CSV depois que o gateway confirmar o Pix.
  * O webhook só deve chamar isto com pagamento já verificado.
