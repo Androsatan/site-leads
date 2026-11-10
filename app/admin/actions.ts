@@ -3,13 +3,22 @@
 import { redirect } from "next/navigation";
 import { isAdmin, checkAdminPassword, endAdminSession, startAdminSession, adminPasswordConfigured } from "@/lib/admin-session";
 import { addProduct, removeProduct, setProductFeatured, updateProduct } from "@/lib/catalog";
-import { addMenuNiche, removeMenuNiche as deleteMenuNiche } from "@/lib/menu-niches";
+import { addMenuNiche, listMenuNiches, removeMenuNiche as deleteMenuNiche } from "@/lib/menu-niches";
 import { isProductId } from "@/lib/order";
+import { nicheSlug } from "@/lib/products";
 
 const CSV_LIMIT = 5 * 1024 * 1024;
 
 async function requireAdmin() {
   if (!(await isAdmin())) redirect("/admin/login");
+}
+
+/** O nome gravado é o do submenu, para o lead cair na página daquele nicho. */
+async function menuNicheName(name: string): Promise<string | { error: string }> {
+  const slug = nicheSlug(name);
+  const match = (await listMenuNiches()).find((niche) => niche.slug === slug);
+  if (!match) return { error: "Escolha um submenu que exista no menu." };
+  return match.name;
 }
 
 function text(formData: FormData, name: string, max: number) {
@@ -125,13 +134,15 @@ export async function createProduct(
 
   const fields = readProductFields(formData);
   if ("error" in fields) return fields;
+  const niche = await menuNicheName(fields.niche);
+  if (typeof niche !== "string") return niche;
 
   const csv = await readCsv(formData, true);
   if (csv && "error" in csv) return csv;
   if (!csv) return { error: "Envie o arquivo CSV deste lead." };
 
   try {
-    await addProduct({ ...fields, csv });
+    await addProduct({ ...fields, niche, csv });
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Não foi possível salvar o lead." };
   }
@@ -150,12 +161,14 @@ export async function saveProduct(
 
   const fields = readProductFields(formData);
   if ("error" in fields) return fields;
+  const niche = await menuNicheName(fields.niche);
+  if (typeof niche !== "string") return niche;
 
   const csv = await readCsv(formData, false);
   if (csv && "error" in csv) return csv;
 
   try {
-    await updateProduct(id, { ...fields, csv });
+    await updateProduct(id, { ...fields, niche, csv });
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Não foi possível salvar o lead." };
   }

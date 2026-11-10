@@ -2,5 +2,9 @@
   {
     "name": "Padarias",
     "slug": "padarias"
+  },
+  {
+    "name": "Oficinas",
+    "slug": "oficinas"
   }
 ]

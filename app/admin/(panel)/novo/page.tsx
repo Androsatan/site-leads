@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
 import { createProduct } from "@/app/admin/actions";
 import { AdminProductForm } from "@/components/admin-product-form";
+import { listMenuNiches } from "@/lib/menu-niches";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Adicionar lead",
 };
 
-export default function NewProductPage() {
+export default async function NewProductPage() {
+  const niches = await listMenuNiches();
+
   return (
     <main className="mx-auto max-w-[760px] px-5 py-16">
       <p className="text-[11px] font-medium tracking-[0.22em] text-neon">NOVO LEAD</p>
@@ -14,7 +19,7 @@ export default function NewProductPage() {
       <p className="mt-4 text-sm leading-6 text-mute">
         Se o campo Contatos ficar vazio, a loja usa a quantidade de linhas do CSV, sem o cabeçalho.
       </p>
-      <AdminProductForm action={createProduct} submitLabel="Adicionar lead" />
+      <AdminProductForm action={createProduct} niches={niches} submitLabel="Adicionar lead" />
     </main>
   );
 }

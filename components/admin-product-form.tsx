@@ -1,20 +1,23 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import type { Product } from "@/lib/products";
+import { nicheSlug, type Product } from "@/lib/products";
 
 const fieldClass = "mt-2 w-full border border-line bg-ink px-3 py-3 text-paper outline-none focus:border-neon";
 
 export function AdminProductForm({
   action,
   product,
+  niches,
   submitLabel,
 }: {
   action: (previous: { error: string }, formData: FormData) => Promise<{ error: string }>;
   product?: Product;
+  niches: { name: string; slug: string }[];
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, { error: "" });
+  const currentNiche = niches.find((niche) => niche.slug === nicheSlug(product?.niche ?? ""))?.name ?? "";
 
   return (
     <form action={formAction} className="mt-10 grid gap-5 md:grid-cols-2">
@@ -31,15 +34,22 @@ export function AdminProductForm({
         />
       </label>
       <label className="block text-sm">
-        <span className="text-mute">Nicho</span>
-        <input
-          name="niche"
-          required
-          maxLength={60}
-          defaultValue={product?.niche}
-          className={fieldClass}
-          placeholder="Padarias"
-        />
+        <span className="text-mute">Submenu</span>
+        <select name="niche" required defaultValue={currentNiche} disabled={niches.length === 0} className={fieldClass}>
+          <option value="" disabled>
+            Escolha o nicho
+          </option>
+          {niches.map((niche) => (
+            <option key={niche.slug} value={niche.name}>
+              {niche.name}
+            </option>
+          ))}
+        </select>
+        <span className="mt-2 block text-xs text-mute">
+          {niches.length === 0
+            ? "Crie um submenu em Submenus antes de salvar este lead."
+            : "O lead entra na página desse nicho. A região é o campo cidade ou bairro."}
+        </span>
       </label>
       <label className="block text-sm">
         <span className="text-mute">Cidade ou bairro</span>

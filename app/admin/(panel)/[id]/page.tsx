@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { saveProduct } from "@/app/admin/actions";
 import { AdminProductForm } from "@/components/admin-product-form";
 import { getProduct } from "@/lib/catalog";
+import { listMenuNiches } from "@/lib/menu-niches";
 import { isProductId } from "@/lib/order";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   const { id } = await params;
   if (!isProductId(id)) notFound();
 
-  const product = await getProduct(id);
+  const [product, niches] = await Promise.all([getProduct(id), listMenuNiches()]);
   if (!product) notFound();
 
   return (
@@ -25,7 +26,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
       <p className="mt-4 text-sm leading-6 text-mute">
         O endereço do lead na loja permanece o mesmo. O número de contatos do card é o campo Contatos.
       </p>
-      <AdminProductForm action={saveProduct} product={product} submitLabel="Salvar alterações" />
+      <AdminProductForm action={saveProduct} product={product} niches={niches} submitLabel="Salvar alterações" />
     </main>
   );
 }

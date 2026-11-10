@@ -5,18 +5,18 @@
     "niche": "Padarias",
     "city": "Centro",
     "state": "BH",
-    "leads": 70,
-    "price": 10,
+    "leads": 1,
+    "price": 1,
     "fileName": "padarias-centro-savassi.csv",
-    "featured": true,
     "highlight": "Mais pedido",
     "fields": [
       "Nome",
-      "WhatsApp",
       "Bairro",
-      "Endereço"
+      "Endereço",
+      "Low Ticket"
     ],
-    "description": "Padarias e confeitarias do hipercentro e da Savassi, com WhatsApp ativo para o primeiro contato comercial."
+    "description": "Padarias e confeitarias do hipercentro e da Savassi, com WhatsApp ativo para o primeiro contato comercial.",
+    "featured": true
   },
   {
     "id": "odonto-pampulha",
@@ -24,14 +24,15 @@
     "niche": "Padarias",
     "city": "Leste",
     "state": "BH",
-    "leads": 220,
-    "price": 197,
+    "leads": 1,
+    "price": 100,
     "fileName": "odonto-pampulha.csv",
     "fields": [
       "Nome",
       "WhatsApp",
       "Bairro",
-      "Especialidade"
+      "Especialidade",
+      "Qualificado"
     ],
     "description": "Consultórios da Pampulha e do São Luiz, filtrados para quem vende para odontologia.",
     "featured": true
@@ -42,14 +43,15 @@
     "niche": "Padarias",
     "city": "Nordeste",
     "state": "BH",
-    "leads": 140,
-    "price": 167,
+    "leads": 1,
+    "price": 10,
     "fileName": "imobiliarias-lourdes.csv",
     "fields": [
       "Nome",
       "WhatsApp",
       "Bairro",
-      "Site"
+      "Site",
+      "Low Ticket"
     ],
     "description": "Imobiliárias de Lourdes e Santo Antônio, prontas para uma proposta direta no WhatsApp.",
     "featured": true
@@ -105,5 +107,22 @@
       "Área"
     ],
     "description": "Escritórios da Serra e do Belvedere: advocacia, contabilidade e consultoria."
+  },
+  {
+    "id": "oficinas-centro",
+    "name": "Oficinas - Centro",
+    "niche": "Oficinas",
+    "city": "Centro",
+    "state": "BH",
+    "leads": 1,
+    "price": 78,
+    "fileName": "oficinas-centro.csv",
+    "fields": [
+      "Nome",
+      "WhatsApp",
+      "Bairro",
+      "Qualificado"
+    ],
+    "description": "Leads de oficinas na região do centro qualificados!"
   }
 ]
