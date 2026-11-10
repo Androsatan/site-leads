@@ -214,7 +214,7 @@ export async function sendDeliveryEmail(input: DeliveryInput) {
       to: maskEmail(input.to),
       from: RESEND_FROM,
       name: error.name,
-      statusCode: error.statusCode ?? null,
+      statusCode: "statusCode" in error && typeof error.statusCode === "number" ? error.statusCode : null,
       message: error.message,
     });
     throw new Error(error.message);

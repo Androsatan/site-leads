@@ -37,12 +37,13 @@ export function PixCheckout({
   useEffect(() => {
     const transactionId = payment?.transactionId;
     if (!transactionId || confirmed) return;
+    const id: string = transactionId;
 
     let stopped = false;
 
     async function tick() {
       try {
-        const result = await requestPixStatus(transactionId);
+        const result = await requestPixStatus(id);
         if (stopped) return;
         if (result.paid) {
           setConfirmed(true);
