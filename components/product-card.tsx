@@ -3,7 +3,7 @@ import { ProductActions } from "@/components/product-actions";
 import { formatBRL, formatLeads } from "@/lib/format";
 import { productSku, type Product } from "@/lib/products";
 
-function WhatsAppBadge() {
+function Seal({ children }: { children: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-neon/30 bg-neon/10 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-neon">
       <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
@@ -17,8 +17,19 @@ function WhatsAppBadge() {
           strokeLinejoin="round"
         />
       </svg>
-      WhatsApp Validado
+      {children}
     </span>
+  );
+}
+
+export function LeadBadges({ product }: { product: Product }) {
+  if (!product.whatsappVerified && !product.qualified) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {product.whatsappVerified ? <Seal>WhatsApp Validado</Seal> : null}
+      {product.qualified ? <Seal>Qualificado</Seal> : null}
+    </div>
   );
 }
 
@@ -51,9 +62,11 @@ export function ProductCard({
         <h3 className="mt-4 text-[1.7rem] font-semibold leading-tight tracking-[-0.03em] transition-colors group-hover:text-neon">
           {product.name}
         </h3>
-        <div className="mt-4">
-          <WhatsAppBadge />
-        </div>
+        {product.whatsappVerified || product.qualified ? (
+          <div className="mt-4">
+            <LeadBadges product={product} />
+          </div>
+        ) : null}
         <p className="mt-3 max-w-xl text-sm leading-6 text-mute">{product.description}</p>
         <ul className="mt-5 flex flex-wrap gap-2">
           {product.fields.map((field) => (

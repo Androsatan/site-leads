@@ -17,6 +17,8 @@ export type NewProductInput = {
   fields: string[];
   highlight?: string;
   featured?: boolean;
+  whatsappVerified?: boolean;
+  qualified?: boolean;
   /** Quantidade exibida no card. Sem isso, conta as linhas do CSV. */
   leads?: number;
   csv: Buffer;
@@ -32,6 +34,8 @@ export type ProductUpdate = {
   fields: string[];
   highlight?: string;
   featured?: boolean;
+  whatsappVerified?: boolean;
+  qualified?: boolean;
   leads?: number;
   csv?: Buffer;
 };
@@ -88,8 +92,9 @@ async function readAll() {
   }
 }
 
-export function listProducts() {
-  return readAll();
+export async function listProducts() {
+  const products = await readAll();
+  return products.slice().sort((a, b) => b.price - a.price || a.name.localeCompare(b.name, "pt-BR"));
 }
 
 export async function getProduct(id: string) {
@@ -150,6 +155,8 @@ export function addProduct(input: NewProductInput) {
       description: input.description,
       ...(input.highlight ? { highlight: input.highlight } : {}),
       ...(input.featured ? { featured: true } : {}),
+      ...(input.whatsappVerified ? { whatsappVerified: true } : {}),
+      ...(input.qualified ? { qualified: true } : {}),
     };
 
     const next = products.slice();
@@ -167,9 +174,9 @@ export function addProduct(input: NewProductInput) {
   });
 }
 
-function withoutFeatured(product: Product): Product {
+function withoutFlag(product: Product, flag: "featured" | "whatsappVerified" | "qualified"): Product {
   const next = { ...product };
-  delete next.featured;
+  delete next[flag];
   return next;
 }
 
@@ -209,7 +216,11 @@ export function updateProduct(id: string, input: ProductUpdate) {
       description: input.description,
     };
     nextProduct = input.highlight ? { ...nextProduct, highlight: input.highlight } : withoutHighlight(nextProduct);
-    nextProduct = input.featured ? { ...nextProduct, featured: true } : withoutFeatured(nextProduct);
+    nextProduct = input.featured ? { ...nextProduct, featured: true } : withoutFlag(nextProduct, "featured");
+    nextProduct = input.whatsappVerified
+      ? { ...nextProduct, whatsappVerified: true }
+      : withoutFlag(nextProduct, "whatsappVerified");
+    nextProduct = input.qualified ? { ...nextProduct, qualified: true } : withoutFlag(nextProduct, "qualified");
 
     const next = products.map((product) => (product.id === id ? nextProduct : product));
     try {
@@ -232,7 +243,7 @@ export function setProductFeatured(id: string, featured: boolean) {
 
     const next = products.map((product) => {
       if (product.id !== id) return product;
-      return featured ? { ...product, featured: true } : withoutFeatured(product);
+      return featured ? { ...product, featured: true } : withoutFlag(product, "featured");
     });
     await writeAll(next);
   });

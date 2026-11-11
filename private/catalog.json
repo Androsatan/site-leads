@@ -24,18 +24,19 @@
     "niche": "Padarias",
     "city": "Leste",
     "state": "BH",
-    "leads": 1,
-    "price": 100,
+    "leads": 2,
+    "price": 200,
     "fileName": "odonto-pampulha.csv",
     "fields": [
       "Nome",
       "WhatsApp",
       "Bairro",
-      "Especialidade",
-      "Qualificado"
+      "Especialidade"
     ],
     "description": "Consultórios da Pampulha e do São Luiz, filtrados para quem vende para odontologia.",
-    "featured": true
+    "featured": true,
+    "whatsappVerified": true,
+    "qualified": true
   },
   {
     "id": "imobiliarias-lourdes",
@@ -54,7 +55,8 @@
       "Low Ticket"
     ],
     "description": "Imobiliárias de Lourdes e Santo Antônio, prontas para uma proposta direta no WhatsApp.",
-    "featured": true
+    "featured": true,
+    "whatsappVerified": true
   },
   {
     "id": "academias-buritis",
@@ -62,8 +64,8 @@
     "niche": "Padarias",
     "city": "Norte",
     "state": "BH",
-    "leads": 160,
-    "price": 137,
+    "leads": 1,
+    "price": 100,
     "fileName": "academias-buritis.csv",
     "fields": [
       "Nome",
@@ -72,7 +74,9 @@
       "Instagram"
     ],
     "description": "Academias e estúdios de Buritis e Estoril, com WhatsApp já validado.",
-    "featured": true
+    "featured": true,
+    "whatsappVerified": true,
+    "qualified": true
   },
   {
     "id": "restaurantes-funcionarios",
@@ -80,8 +84,8 @@
     "niche": "Padarias",
     "city": "Sul",
     "state": "BH",
-    "leads": 240,
-    "price": 157,
+    "leads": 1,
+    "price": 10,
     "fileName": "restaurantes-funcionarios.csv",
     "fields": [
       "Nome",
@@ -89,7 +93,8 @@
       "Bairro",
       "Cozinha"
     ],
-    "description": "Casas de comida de Funcionários e Savassi, separadas por tipo de cozinha."
+    "description": "Casas de comida de Funcionários e Savassi, separadas por tipo de cozinha.",
+    "whatsappVerified": true
   },
   {
     "id": "escritorios-serra",
@@ -97,8 +102,8 @@
     "niche": "Padarias",
     "city": "Oeste",
     "state": "BH",
-    "leads": 120,
-    "price": 187,
+    "leads": 1,
+    "price": 10,
     "fileName": "escritorios-serra.csv",
     "fields": [
       "Nome",
@@ -106,7 +111,8 @@
       "Bairro",
       "Área"
     ],
-    "description": "Escritórios da Serra e do Belvedere: advocacia, contabilidade e consultoria."
+    "description": "Escritórios da Serra e do Belvedere: advocacia, contabilidade e consultoria.",
+    "whatsappVerified": true
   },
   {
     "id": "oficinas-centro",
@@ -115,7 +121,7 @@
     "city": "Centro",
     "state": "BH",
     "leads": 1,
-    "price": 78,
+    "price": 20,
     "fileName": "oficinas-centro.csv",
     "fields": [
       "Nome",
@@ -123,6 +129,7 @@
       "Bairro",
       "Qualificado"
     ],
-    "description": "Leads de oficinas na região do centro qualificados!"
+    "description": "Leads de oficinas na região do centro qualificados!",
+    "whatsappVerified": true
   }
 ]

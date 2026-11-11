@@ -132,10 +132,25 @@ export function AdminProductForm({
           </span>
         ) : null}
       </label>
-      <label className="flex items-center gap-3 text-sm md:col-span-2">
-        <input name="featured" type="checkbox" defaultChecked={Boolean(product?.featured)} className="size-4 accent-neon" />
-        Mostrar em destaque na página inicial
-      </label>
+      <div className="grid gap-3 md:col-span-2">
+        <label className="flex items-center gap-3 text-sm">
+          <input
+            name="whatsappVerified"
+            type="checkbox"
+            defaultChecked={Boolean(product?.whatsappVerified)}
+            className="size-4 accent-neon"
+          />
+          WhatsApp verificado
+        </label>
+        <label className="flex items-center gap-3 text-sm">
+          <input name="qualified" type="checkbox" defaultChecked={Boolean(product?.qualified)} className="size-4 accent-neon" />
+          Lead qualificado
+        </label>
+        <label className="flex items-center gap-3 text-sm">
+          <input name="featured" type="checkbox" defaultChecked={Boolean(product?.featured)} className="size-4 accent-neon" />
+          Mostrar em destaque na página inicial
+        </label>
+      </div>
       {state.error ? (
         <p role="alert" className="text-sm text-electric md:col-span-2">
           {state.error}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { LeadBadges } from "@/components/product-card";
 import { ProductActions } from "@/components/product-actions";
 import { getProduct } from "@/lib/catalog";
 import { formatBRL, formatLeads } from "@/lib/format";
@@ -42,9 +43,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             ) : (
               <span className="font-mono text-[11px] tracking-[0.12em] text-mute">{productSku(product)}</span>
             )}
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-neon/30 bg-neon/10 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-neon">
-              WhatsApp Validado
-            </span>
+            <LeadBadges product={product} />
           </div>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.045em] md:text-6xl">{product.name}</h1>
           <p className="mt-6 max-w-2xl text-base leading-7 text-mute">{product.description}</p>
@@ -57,7 +56,8 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             ))}
           </ul>
           <p className="mt-8 text-sm text-mute">
-            {formatLeads(product.leads)} contatos com WhatsApp validado. Pagamento único e o arquivo chega no e-mail.
+            {formatLeads(product.leads)} contatos
+            {product.whatsappVerified ? " com WhatsApp validado" : ""}. Pagamento único e o arquivo chega no e-mail.
           </p>
           <Link href="/listas" className="mt-8 inline-block text-sm text-mute underline underline-offset-2">
             Ver todos leads

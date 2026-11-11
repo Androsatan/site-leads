@@ -18,6 +18,10 @@ export type Product = {
   description: string;
   featured?: boolean;
   highlight?: string;
+  /** Selo verde “WhatsApp Validado” no card. */
+  whatsappVerified?: boolean;
+  /** Selo verde “Qualificado”, ao lado do WhatsApp validado. */
+  qualified?: boolean;
 };
 
 export function productSku(product: Product) {

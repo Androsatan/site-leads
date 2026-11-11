@@ -36,6 +36,8 @@ type ProductFields = {
   price: number;
   fields: string[];
   featured: boolean;
+  whatsappVerified: boolean;
+  qualified: boolean;
   leads?: number;
 };
 
@@ -81,6 +83,8 @@ function readProductFields(formData: FormData): ProductFields | { error: string 
     price,
     fields,
     featured: formData.get("featured") === "on",
+    whatsappVerified: formData.get("whatsappVerified") === "on",
+    qualified: formData.get("qualified") === "on",
     leads,
   };
 }
