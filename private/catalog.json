@@ -1,6 +1,6 @@
 [
   {
-    "id": "padarias-centro-savassi",
+    "id": "padarias-centro",
     "name": "Padarias — Centro",
     "niche": "Padarias",
     "city": "Centro",
@@ -19,7 +19,7 @@
     "featured": true
   },
   {
-    "id": "odonto-pampulha",
+    "id": "padarias-leste",
     "name": "Padarias — Leste",
     "niche": "Padarias",
     "city": "Leste",
@@ -39,7 +39,7 @@
     "qualified": true
   },
   {
-    "id": "imobiliarias-lourdes",
+    "id": "padarias-nordeste",
     "name": "Padarias — Nordeste",
     "niche": "Padarias",
     "city": "Nordeste",
@@ -59,7 +59,7 @@
     "whatsappVerified": true
   },
   {
-    "id": "academias-buritis",
+    "id": "padarias-norte",
     "name": "Padarias — Norte",
     "niche": "Padarias",
     "city": "Norte",
@@ -79,7 +79,7 @@
     "qualified": true
   },
   {
-    "id": "restaurantes-funcionarios",
+    "id": "padarias-sul",
     "name": "Padarias — Sul",
     "niche": "Padarias",
     "city": "Sul",
@@ -97,7 +97,7 @@
     "whatsappVerified": true
   },
   {
-    "id": "escritorios-serra",
+    "id": "padarias-oeste",
     "name": "Padarias — Oeste",
     "niche": "Padarias",
     "city": "Oeste",

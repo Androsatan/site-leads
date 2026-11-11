@@ -118,6 +118,19 @@ function slugify(value: string) {
   return slug;
 }
 
+/** O link público segue o nome. `exceptId` evita o lead colidir consigo mesmo na edição. */
+function uniqueProductId(name: string, products: Product[], exceptId?: string) {
+  const base = slugify(name);
+  if (!base) throw new Error("Dê um nome ao lead.");
+  let id = base;
+  let suffix = 2;
+  while (products.some((product) => product.id === id && product.id !== exceptId)) {
+    id = `${base.slice(0, 44)}-${suffix}`;
+    suffix += 1;
+  }
+  return id;
+}
+
 function countContacts(csv: Buffer) {
   const text = csv.toString("utf8").replace(/^\uFEFF/, "");
   const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
@@ -133,14 +146,7 @@ export function addProduct(input: NewProductInput) {
     const leads = input.leads ?? counted;
 
     const products = await readAll();
-    let id = slugify(input.name);
-    if (!id) throw new Error("Dê um nome ao lead.");
-    let suffix = 2;
-    while (products.some((product) => product.id === id)) {
-      id = `${slugify(input.name).slice(0, 44)}-${suffix}`;
-      suffix += 1;
-    }
-
+    const id = uniqueProductId(input.name, products);
     const fileName = `${id}.csv`;
     const product: Product = {
       id,
@@ -206,6 +212,7 @@ export function updateProduct(id: string, input: ProductUpdate) {
 
     let nextProduct: Product = {
       ...current,
+      id: uniqueProductId(input.name, products, id),
       name: input.name,
       niche: input.niche,
       city: input.city,
