@@ -17,7 +17,7 @@ const questions = [
   },
   {
     q: "E se eu fechar a página antes do e-mail?",
-    a: "Pode fechar. O envio não depende desta tela. O checkout avisa o servidor, e só então o CSV sai para o e-mail usado na compra.",
+    a: "Pode fechar. O envio não depende desta tela. O CSV sai para o e-mail usado na compra.",
   },
   {
     q: "Posso usar os contatos em campanha?",

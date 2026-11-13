@@ -64,7 +64,7 @@ export async function Hero() {
               <span className="size-2 shrink-0 rounded-full bg-white/20" />
               <span className="size-2 shrink-0 rounded-full bg-white/20" />
               <span className="size-2 shrink-0 rounded-full bg-neon" />
-              <span className="truncate font-mono text-xs text-mute">{featured?.fileName ?? "leads.csv"}</span>
+              <span className="truncate font-mono text-xs text-mute">leads.csv</span>
             </div>
             <span className="shrink-0 font-mono text-[11px] text-neon">
               {formatLeads(featured?.leads ?? 0)} linhas

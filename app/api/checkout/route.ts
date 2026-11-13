@@ -3,7 +3,7 @@ import { appUrl, isHttpsApp, MissingEnvError } from "@/lib/env";
 import { packOrderId } from "@/lib/gateway-order";
 import { encodeOrder, isProductId, mergeLines, parseQuantity, type OrderLine } from "@/lib/order";
 import { getProduct } from "@/lib/catalog";
-import { createPixInvoice, PagHiperError, type PixChargeItem } from "@/lib/paghiper";
+import { createPixInvoice, type PixChargeItem } from "@/lib/paghiper";
 import { savePendingOrder } from "@/lib/pending-order";
 import { rememberPendingPurchase } from "@/lib/purchases";
 
@@ -212,7 +212,7 @@ export async function POST(request: Request) {
     if (error instanceof MissingEnvError) {
       console.error("[checkout] variável ausente", { envName: error.envName, notificationUrl });
       return NextResponse.json(
-        { error: `Configure ${error.envName} no arquivo .env e reinicie o servidor.` },
+        { error: "Não foi possível gerar o Pix agora." },
         { status: 503 },
       );
     }
@@ -224,7 +224,7 @@ export async function POST(request: Request) {
       message: error instanceof Error ? error.message : String(error),
     });
     return NextResponse.json(
-      { error: error instanceof PagHiperError ? error.message : "Não foi possível gerar o Pix." },
+      { error: "Não foi possível gerar o Pix agora." },
       { status: 502 },
     );
   }

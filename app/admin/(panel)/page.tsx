@@ -27,10 +27,6 @@ export default async function AdminPage() {
           Adicionar lead
         </Link>
       </div>
-      <p className="mt-4 max-w-2xl text-sm leading-6 text-mute">
-        Incluir, editar ou destacar um lead atualiza a loja neste computador. Na Vercel o disco não
-        guarda arquivo novo, então esta tela vale para o servidor local.
-      </p>
       {products.length === 0 ? (
         <p className="mt-10 border border-line bg-panel/85 px-6 py-12 text-center">Nenhum lead no catálogo.</p>
       ) : (

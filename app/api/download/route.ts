@@ -72,7 +72,7 @@ export async function GET(request: Request) {
     return htmlPage(
       404,
       "Arquivo indisponível",
-      "O CSV deste lead ainda não está no servidor. Fale com o suporte e informe o número do pedido.",
+      "O arquivo deste lead ainda não está disponível. Fale com o suporte e informe o número do pedido.",
     );
   }
 }

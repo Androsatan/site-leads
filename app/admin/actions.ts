@@ -122,7 +122,7 @@ export async function login(
   formData: FormData,
 ): Promise<{ error: string }> {
   if (!adminPasswordConfigured()) {
-    return { error: "Defina ADMIN_PASSWORD no arquivo .env e reinicie o servidor." };
+    return { error: "O acesso ainda não está disponível." };
   }
 
   const key = await clientKey();
