@@ -1,7 +1,9 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isAdmin, checkAdminPassword, endAdminSession, startAdminSession, adminPasswordConfigured } from "@/lib/admin-session";
+import { clearLoginFailures, loginBlocked, recordLoginFailure } from "@/lib/login-limit";
 import { addProduct, removeProduct, setProductFeatured, updateProduct } from "@/lib/catalog";
 import { addMenuNiche, listMenuNiches, removeMenuNiche as deleteMenuNiche } from "@/lib/menu-niches";
 import { isProductId } from "@/lib/order";
@@ -108,6 +110,13 @@ async function readCsv(formData: FormData, required: boolean): Promise<Buffer | 
   return csv;
 }
 
+async function clientKey() {
+  const headerList = await headers();
+  const forwarded = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
+  const real = headerList.get("x-real-ip")?.trim() ?? "";
+  return (forwarded || real || "local").slice(0, 80);
+}
+
 export async function login(
   _previous: { error: string },
   formData: FormData,
@@ -116,11 +125,19 @@ export async function login(
     return { error: "Defina ADMIN_PASSWORD no arquivo .env e reinicie o servidor." };
   }
 
+  const key = await clientKey();
+  if (loginBlocked(key)) {
+    return { error: "Muitas tentativas. Espere alguns minutos." };
+  }
+
   const password = String(formData.get("password") ?? "");
   if (!checkAdminPassword(password)) {
+    recordLoginFailure(key);
+    await new Promise((resolve) => setTimeout(resolve, 500));
     return { error: "Senha incorreta." };
   }
 
+  clearLoginFailures(key);
   await startAdminSession();
   redirect("/admin");
 }
