@@ -121,7 +121,7 @@ function renderDeliveryEmail(input: {
               <td style="padding:8px 32px 32px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#3c3a36;">
                 <strong style="display:block;margin-bottom:8px;color:#161616;">Como usar</strong>
                 1. Abra o arquivo no Excel ou em Google Planilhas (Arquivo → Importar).<br />
-                2. A primeira linha é o cabeçalho. Filtre por bairro ou categoria antes de prospectar.<br />
+                2. A primeira linha é o cabeçalho. Filtre por região ou categoria antes de prospectar.<br />
                 3. Identifique a sua empresa no contato e ofereça um opt-out simples. Isso faz parte da LGPD.
               </td>
             </tr>

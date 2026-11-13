@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { MissingEnvError } from "@/lib/env";
 import { quotedTotalCents, fulfillPaidOrder } from "@/lib/fulfillment";
+import { markPurchaseDelivery, rememberPurchase } from "@/lib/purchases";
 import { unpackOrderId } from "@/lib/gateway-order";
 import { confirmPixNotification, fetchPixStatus, PagHiperError } from "@/lib/paghiper";
 import { readPendingOrder } from "@/lib/pending-order";
@@ -66,6 +67,8 @@ export async function POST(request: Request) {
     console.error("[webhook] notificação sem identificador", { transactionId: transactionId || null, notificationId: notificationId || null });
     return NextResponse.json({ error: "Notificação sem identificador." }, { status: 400 });
   }
+
+  let recordedTransaction: string | null = null;
 
   try {
     const notice = await confirmPixNotification({ transactionId, notificationId });
@@ -172,11 +175,21 @@ export async function POST(request: Request) {
       buyerName = notice.payerName;
     }
 
+    const saved = await rememberPurchase({
+      transactionId: notice.transactionId,
+      email,
+      buyerName,
+      reference,
+      totalCents: notice.valueCents,
+    });
+    if (saved) recordedTransaction = notice.transactionId;
+
     console.info("[webhook] chamando fulfillPaidOrder", {
       transactionId: notice.transactionId,
       reference,
       email: maskEmail(email),
       localOrder: Boolean(pending),
+      purchaseSaved: saved,
     });
 
     const result = await fulfillPaidOrder({
@@ -185,6 +198,9 @@ export async function POST(request: Request) {
       buyerName,
       reference,
     });
+    if (recordedTransaction) {
+      await markPurchaseDelivery(recordedTransaction, result.outcome === "sent" ? "enviado" : "falhou");
+    }
 
     console.info("[webhook] fulfillPaidOrder respondeu", {
       transactionId: notice.transactionId,
@@ -204,6 +220,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ received: true, status: notice.status });
   } catch (error) {
+    if (recordedTransaction) {
+      await markPurchaseDelivery(recordedTransaction, "falhou").catch((markError) => {
+        console.error("[purchases] não foi possível marcar a falha de envio", {
+          transactionId: recordedTransaction,
+          message: markError instanceof Error ? markError.message : String(markError),
+        });
+      });
+    }
     if (error instanceof MissingEnvError) {
       console.error("[webhook] variável ausente", { envName: error.envName, transactionId });
       return NextResponse.json({ error: "Webhook sem credencial." }, { status: 503 });

@@ -7,6 +7,14 @@ export function formatBRL(value: number) {
   });
 }
 
+/** Valor pago, em centavos, com os centavos visíveis. */
+export function formatCents(cents: number) {
+  return (cents / 100).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
 export function formatLeads(value: number) {
   return value.toLocaleString("pt-BR");
 }

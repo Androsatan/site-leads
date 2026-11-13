@@ -2,23 +2,24 @@ import { formatLeads } from "@/lib/format";
 import { getFeaturedProduct } from "@/lib/catalog";
 
 const previewRows = [
-  ["Padaria do Mercado", "Centro", "validado"],
-  ["Forno Savassi", "Savassi", "validado"],
-  ["Massa da Praça", "Centro", "validado"],
-  ["Pão da Afonso Pena", "Centro", "validado"],
-  ["Confeitaria do Parque", "Savassi", "validado"],
-  ["Estação do Trigo", "Funcionários", "validado"],
+  ["Padaria do Mercado", "Centro-Sul", "validado"],
+  ["Forno da Pampulha", "Pampulha", "validado"],
+  ["Massa da Lagoa", "Noroeste", "validado"],
+  ["Pão do Barreiro", "Barreiro", "validado"],
+  ["Confeitaria Norte", "Norte", "validado"],
+  ["Estação Venda Nova", "Venda Nova", "validado"],
 ];
 
-const places = [
-  "Savassi",
-  "Lourdes",
+const regions = [
+  "Barreiro",
+  "Centro-Sul",
+  "Leste",
+  "Nordeste",
+  "Noroeste",
+  "Norte",
+  "Oeste",
   "Pampulha",
-  "Centro",
-  "Buritis",
-  "Funcionários",
-  "Serra",
-  "Belvedere",
+  "Venda Nova",
 ];
 
 export async function Hero() {
@@ -48,7 +49,7 @@ export async function Hero() {
             </div>
             <div>
               <dt className="text-[11px] tracking-[0.16em] text-mute">REGIÃO</dt>
-              <dd className="mt-2 text-sm">Bairros de BH</dd>
+              <dd className="mt-2 text-sm">9 regiões de BH</dd>
             </div>
             <div>
               <dt className="text-[11px] tracking-[0.16em] text-mute">ENTREGA</dt>
@@ -72,7 +73,7 @@ export async function Hero() {
           <div className="sheet-mask px-4 py-3 font-mono text-xs">
             <div className="grid grid-cols-[1.3fr_0.8fr_0.7fr] gap-3 border-b border-line pb-2 text-[10px] tracking-[0.14em] text-mute">
               <span>NOME</span>
-              <span>BAIRRO</span>
+              <span>REGIÃO</span>
               <span>WHATSAPP</span>
             </div>
             {previewRows.map((row) => (
@@ -91,9 +92,9 @@ export async function Hero() {
 
       <div className="overflow-hidden border-y border-line" aria-hidden="true">
         <div className="marquee-track flex w-max gap-8 py-4">
-          {[...places, ...places, ...places, ...places].map((place, index) => (
-            <span key={`${place}-${index}`} className="text-sm font-medium tracking-[0.18em] text-mute">
-              {place.toUpperCase()}
+          {[...regions, ...regions].map((region, index) => (
+            <span key={`${region}-${index}`} className="text-sm font-medium tracking-[0.18em] text-mute">
+              {region.toUpperCase()}
               <span className="ml-8 text-neon">●</span>
             </span>
           ))}

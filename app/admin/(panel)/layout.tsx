@@ -19,6 +19,9 @@ export default async function AdminPanelLayout({ children }: { children: React.R
             <Link href="/admin" className="font-semibold">
               Leads
             </Link>
+            <Link href="/admin/compras" className="text-mute hover:text-paper">
+              Compras
+            </Link>
             <Link href="/admin#submenus" className="text-mute hover:text-paper">
               Submenus
             </Link>

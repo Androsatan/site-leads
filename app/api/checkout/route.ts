@@ -5,6 +5,7 @@ import { encodeOrder, isProductId, mergeLines, parseQuantity, type OrderLine } f
 import { getProduct } from "@/lib/catalog";
 import { createPixInvoice, PagHiperError, type PixChargeItem } from "@/lib/paghiper";
 import { savePendingOrder } from "@/lib/pending-order";
+import { rememberPendingPurchase } from "@/lib/purchases";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -186,6 +187,14 @@ export async function POST(request: Request) {
     if (!saved) {
       console.info("[checkout] pedido local não gravado; a entrega usa o order_id", { orderId });
     }
+
+    await rememberPendingPurchase({
+      transactionId: charge.transactionId,
+      email: payer.email,
+      buyerName: payer.name,
+      reference,
+      totalCents,
+    });
 
     console.info("[checkout] Pix criado", {
       transactionId: charge.transactionId,

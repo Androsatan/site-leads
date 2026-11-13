@@ -2,7 +2,7 @@ const steps = [
   {
     number: "01",
     title: "Escolha os Leads Qualificados",
-    text: "Leads hiper-segmentados por bairros de BH.",
+    text: "Leads separados pelas 9 regiões de BH.",
   },
   {
     number: "02",

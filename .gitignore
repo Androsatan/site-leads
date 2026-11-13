@@ -24,6 +24,9 @@ next-env.d.ts
 # pedidos com e-mail do pagador
 /private/orders
 
+# histórico de compras, com nome e e-mail do cliente
+/private/purchases.json
+
 # listas reais de clientes não devem ir para o git
 # (as amostras fictícias em private/products/*.csv estão versionadas de propósito)
 # private/products/*.csv

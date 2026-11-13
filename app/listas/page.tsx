@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Leads Qualificados",
   description:
-    "Leads B2B hiper-segmentados por bairro de Belo Horizonte, com WhatsApp validado. Pagamento único e CSV no e-mail.",
+    "Leads B2B separados pelas 9 regiões de Belo Horizonte, com WhatsApp validado. Pagamento único e CSV no e-mail.",
 };
 
 export default function ListasPage() {
@@ -18,8 +18,8 @@ export default function ListasPage() {
           Leads Qualificados
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-mute">
-          Nichos hiper-segmentados por bairro. WhatsApp validado, pagamento único e download do CSV
-          no e-mail.
+          Nichos separados pelas 9 regiões de Belo Horizonte. WhatsApp validado, pagamento único e
+          download do CSV no e-mail.
         </p>
       </div>
       <div className="mt-12">
