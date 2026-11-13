@@ -40,10 +40,6 @@ export default async function PurchasesPage() {
     <main className="mx-auto max-w-[1120px] px-5 py-16">
       <p className="text-[11px] font-medium tracking-[0.22em] text-neon">COMPRAS</p>
       <h1 className="mt-3 text-4xl font-semibold tracking-[-0.045em]">Histórico</h1>
-      <p className="mt-4 max-w-2xl text-sm leading-6 text-mute">
-        O Pix entra aqui assim que é gerado. Enquanto não paga, fica como aguardando. Depois aparecem o valor recebido e se o CSV foi enviado.
-        Na Vercel o disco não guarda este arquivo, então o histórico vale para o servidor local.
-      </p>
 
       <dl className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="border border-line bg-panel/85 px-5 py-4">

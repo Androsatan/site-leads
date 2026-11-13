@@ -1,9 +1,11 @@
 import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import path from "path";
+import { get, list, put } from "@vercel/blob";
 import { getProduct } from "@/lib/catalog";
 import { decodeOrder } from "@/lib/order";
 
 const FILE = path.join(process.cwd(), "private", "purchases.json");
+const BLOB_PREFIX = "purchases/";
 const TRANSACTION_ID = /^[A-Za-z0-9]{10,32}$/;
 export type PurchaseItem = {
   productId: string;
@@ -99,7 +101,71 @@ function parsePurchase(value: unknown): Purchase | null {
   };
 }
 
-async function readAll() {
+function blobToken() {
+  return process.env.BLOB_READ_WRITE_TOKEN?.trim() || "";
+}
+
+/** O site publicado usa o Blob da Vercel. Sem esse token, o histórico fica no disco local. */
+export function purchaseStoreMode(): "blob" | "file" | "missing" {
+  if (blobToken()) return "blob";
+  if (process.env.VERCEL) return "missing";
+  return "file";
+}
+
+function blobPath(transactionId: string) {
+  return `${BLOB_PREFIX}${transactionId}.json`;
+}
+
+async function readBlobText(pathname: string) {
+  const result = await get(pathname, { access: "private", useCache: false });
+  if (!result || result.statusCode !== 200 || !result.stream) return null;
+  return new Response(result.stream).text();
+}
+
+async function readBlobPurchase(transactionId: string) {
+  const raw = await readBlobText(blobPath(transactionId));
+  if (!raw) return null;
+  return parsePurchase(JSON.parse(raw));
+}
+
+async function writeBlobPurchase(purchase: Purchase) {
+  await put(blobPath(purchase.transactionId), JSON.stringify(purchase), {
+    access: "private",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    contentType: "application/json",
+    cacheControlMaxAge: 60,
+  });
+}
+
+async function listBlobPurchases() {
+  const purchases: Purchase[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await list({ prefix: BLOB_PREFIX, cursor, limit: 1000 });
+    const parsed = await Promise.all(
+      page.blobs.map(async (blob) => {
+        try {
+          const raw = await readBlobText(blob.pathname);
+          return raw ? parsePurchase(JSON.parse(raw)) : null;
+        } catch (error) {
+          console.error("[purchases] registro ilegível", {
+            pathname: blob.pathname,
+            message: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        }
+      }),
+    );
+    for (const purchase of parsed) {
+      if (purchase) purchases.push(purchase);
+    }
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+  return purchases;
+}
+
+async function readFilePurchases() {
   try {
     const raw = await readFile(FILE, "utf8");
     const data = JSON.parse(raw) as unknown;
@@ -115,20 +181,37 @@ async function readAll() {
   }
 }
 
-async function writeAll(purchases: Purchase[]) {
+async function writeFilePurchases(purchases: Purchase[]) {
   await mkdir(path.dirname(FILE), { recursive: true });
   const temp = `${FILE}.${process.pid}.tmp`;
   await writeFile(temp, `${JSON.stringify(purchases, null, 2)}\n`, "utf8");
   await rename(temp, FILE);
 }
 
+async function readOne(transactionId: string) {
+  if (purchaseStoreMode() === "blob") return readBlobPurchase(transactionId);
+  const purchases = await readFilePurchases();
+  return purchases.find((purchase) => purchase.transactionId === transactionId) ?? null;
+}
+
+async function writeOne(purchase: Purchase) {
+  if (purchaseStoreMode() === "blob") {
+    await writeBlobPurchase(purchase);
+    return;
+  }
+  const purchases = await readFilePurchases();
+  const index = purchases.findIndex((current) => current.transactionId === purchase.transactionId);
+  if (index === -1) purchases.push(purchase);
+  else purchases[index] = purchase;
+  await writeFilePurchases(purchases);
+}
+
 function diskCode(error: unknown) {
   return (error as NodeJS.ErrnoException).code;
 }
 
-/** Na Vercel o arquivo some. O histórico fica no disco desta máquina. */
 function cannotPersist() {
-  return Boolean(process.env.VERCEL);
+  return purchaseStoreMode() === "missing";
 }
 
 async function snapshotItems(reference: string): Promise<PurchaseItem[]> {
@@ -172,7 +255,7 @@ function logUnstored(transactionId: string, error?: unknown) {
           code: diskCode(error) ?? null,
           message: error instanceof Error ? error.message : String(error),
         }
-      : { reason: "disco" }),
+      : { reason: purchaseStoreMode() === "missing" ? "blob" : "disco" }),
   });
 }
 
@@ -190,8 +273,7 @@ export function rememberPendingPurchase(input: PurchaseInput) {
     }
 
     try {
-      const purchases = await readAll();
-      if (purchases.some((purchase) => purchase.transactionId === clean.transactionId)) return true;
+      if (await readOne(clean.transactionId)) return true;
 
       const purchase: Purchase = {
         transactionId: clean.transactionId,
@@ -204,8 +286,7 @@ export function rememberPendingPurchase(input: PurchaseInput) {
         payment: "aguardando",
         delivery: "pendente",
       };
-      purchases.push(purchase);
-      await writeAll(purchases);
+      await writeOne(purchase);
       console.info("[purchases] aguardando pagamento", {
         transactionId: clean.transactionId,
         items: purchase.items.length,
@@ -236,13 +317,12 @@ export function rememberPurchase(input: PurchaseInput) {
     }
 
     try {
-      const purchases = await readAll();
-      const current = purchases.find((purchase) => purchase.transactionId === clean.transactionId);
+      const current = await readOne(clean.transactionId);
       if (current) {
         if (current.payment === "pago") return true;
         current.payment = "pago";
         current.paidAt = new Date().toISOString();
-        await writeAll(purchases);
+        await writeOne(current);
         console.info("[purchases] pagamento confirmado", { transactionId: clean.transactionId });
         return true;
       }
@@ -260,8 +340,7 @@ export function rememberPurchase(input: PurchaseInput) {
         payment: "pago",
         delivery: "pendente",
       };
-      purchases.push(purchase);
-      await writeAll(purchases);
+      await writeOne(purchase);
       console.info("[purchases] compra gravada", {
         transactionId: clean.transactionId,
         items: purchase.items.length,
@@ -281,12 +360,11 @@ export function markPurchaseDelivery(transactionId: string, delivery: PurchaseDe
     if (!TRANSACTION_ID.test(transactionId) || cannotPersist()) return false;
 
     try {
-      const purchases = await readAll();
-      const current = purchases.find((purchase) => purchase.transactionId === transactionId);
+      const current = await readOne(transactionId);
       if (!current || current.delivery === delivery) return Boolean(current);
       if (current.delivery === "enviado") return true;
       current.delivery = delivery;
-      await writeAll(purchases);
+      await writeOne(current);
       console.info("[purchases] envio atualizado", { transactionId, delivery });
       return true;
     } catch (error) {
@@ -301,7 +379,8 @@ export function markPurchaseDelivery(transactionId: string, delivery: PurchaseDe
 }
 
 export async function listPurchases() {
-  const purchases = await readAll();
+  if (purchaseStoreMode() === "missing") return [];
+  const purchases = purchaseStoreMode() === "blob" ? await listBlobPurchases() : await readFilePurchases();
   return purchases.slice().sort((a, b) => {
     const left = a.paidAt ?? a.createdAt;
     const right = b.paidAt ?? b.createdAt;
