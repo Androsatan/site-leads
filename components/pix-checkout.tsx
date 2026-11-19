@@ -23,6 +23,7 @@ export function PixCheckout({
   const [confirmed, setConfirmed] = useState(false);
   const [waitingNote, setWaitingNote] = useState("");
   const errorId = useId();
+  const noticeId = useId();
   const orderKey = items.map((item) => `${item.productId}:${item.quantity}`).join(",");
   const [seenOrder, setSeenOrder] = useState(orderKey);
 
@@ -186,10 +187,15 @@ export function PixCheckout({
           {message}
         </p>
       ) : null}
+      <p id={noticeId} className="border border-line bg-ink px-3 py-3 text-xs leading-5 text-mute">
+        Este é um produto digital. Após a confirmação do pagamento, o arquivo CSV é enviado automaticamente para o seu
+        e-mail. Por se tratar de conteúdo digital de entrega imediata, não há direito de arrependimento após o envio do
+        arquivo.
+      </p>
       <button
         type="submit"
         disabled={loading}
-        aria-describedby={message ? errorId : undefined}
+        aria-describedby={message ? `${errorId} ${noticeId}` : noticeId}
         className="w-full cursor-pointer bg-neon px-4 py-3 text-sm font-semibold text-ink disabled:cursor-progress disabled:opacity-70"
       >
         {loading ? "Gerando Pix…" : "Gerar Pix"}

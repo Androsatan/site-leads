@@ -23,6 +23,10 @@ const questions = [
     q: "Posso usar os contatos em campanha?",
     a: "São leads comerciais para prospecção. A LGPD continua valendo: identifique a sua empresa, tenha uma base legal e ofereça um opt-out simples.",
   },
+  {
+    q: "Posso pedir reembolso depois de receber o arquivo?",
+    a: "Não. O produto é digital e a entrega é automática assim que o pagamento é confirmado. Após o envio do CSV não realizamos estorno por arrependimento.",
+  },
 ];
 
 export function Faq() {
