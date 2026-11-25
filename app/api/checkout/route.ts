@@ -149,6 +149,7 @@ export async function POST(request: Request) {
     reference,
     totalCents,
     items: order.lines.length,
+    deviceIdLength: typeof body.deviceId === "string" ? body.deviceId.length : 0,
   });
 
   try {

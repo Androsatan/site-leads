@@ -72,7 +72,7 @@ function errorMessage(payload: unknown, fallback: string) {
 }
 
 /** Device ID gerado pelo security.js no navegador do comprador. */
-const DEVICE_ID = /^[A-Za-z0-9._:-]{1,200}$/;
+const DEVICE_ID = /^[A-Za-z0-9._:-]{1,1024}$/;
 
 /** Nome que aparece no extrato do comprador (até 13 caracteres). */
 const STATEMENT_DESCRIPTOR = "LEADSFERA";
