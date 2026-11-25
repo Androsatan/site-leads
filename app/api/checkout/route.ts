@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { appUrl, isHttpsApp, MissingEnvError } from "@/lib/env";
+import { randomUUID } from "crypto";
+import { MissingEnvError } from "@/lib/env";
 import { packOrderId } from "@/lib/gateway-order";
 import { encodeOrder, isProductId, mergeLines, parseQuantity, type OrderLine } from "@/lib/order";
 import { getProduct } from "@/lib/catalog";
-import { createPixInvoice, type PixChargeItem } from "@/lib/paghiper";
+import { createPixOrder, type PixChargeItem } from "@/lib/mercadopago";
 import { savePendingOrder } from "@/lib/pending-order";
 import { rememberPendingPurchase } from "@/lib/purchases";
 
@@ -117,10 +118,10 @@ export async function POST(request: Request) {
     const priceCents = product.price * 100;
     totalCents += priceCents * line.quantity;
     items.push({
-      item_id: product.id,
-      description: product.name.slice(0, 255),
+      productId: product.id,
+      title: product.name,
       quantity: line.quantity,
-      price_cents: String(priceCents),
+      unitCents: priceCents,
     });
   }
 
@@ -131,7 +132,7 @@ export async function POST(request: Request) {
   const reference = encodeOrder(order.lines);
   const orderId = await packOrderId(reference);
   if (!orderId) {
-    console.error("[checkout] referência não cabe no order_id", {
+    console.error("[checkout] referência não cabe no external_reference", {
       items: order.lines.length,
       length: reference.length,
     });
@@ -141,28 +142,23 @@ export async function POST(request: Request) {
     );
   }
 
-  const notificationUrl = `${appUrl()}/api/webhook`;
-  console.info("[checkout] criando cobrança", {
+  // O Mercado Pago não aceita notification_url por order: o webhook fica no painel.
+  console.info("[checkout] criando order no Mercado Pago", {
     orderId,
     reference,
     totalCents,
     items: order.lines.length,
-    notificationUrl,
   });
-  if (!isHttpsApp()) {
-    console.error("[checkout] notification_url sem HTTPS. O PagHiper não chama o webhook nesta origem.", {
-      notificationUrl,
-    });
-  }
 
   try {
-    const charge = await createPixInvoice({
-      orderId,
+    const charge = await createPixOrder({
+      externalReference: orderId,
+      idempotencyKey: randomUUID(),
       payerEmail: payer.email,
       payerName: payer.name,
       payerCpfCnpj: payer.cpfCnpj,
-      notificationUrl,
       items,
+      totalCents,
     });
 
     if (!charge.transactionId || charge.valueCents !== totalCents) {
@@ -171,7 +167,6 @@ export async function POST(request: Request) {
         transactionId: charge.transactionId || null,
         expected: totalCents,
         received: charge.valueCents,
-        notificationUrl,
       });
       return NextResponse.json({ error: "O valor do Pix não confere com o pedido." }, { status: 502 });
     }
@@ -188,19 +183,27 @@ export async function POST(request: Request) {
       console.info("[checkout] pedido local não gravado; a entrega usa o order_id", { orderId });
     }
 
-    await rememberPendingPurchase({
+    const remembered = await rememberPendingPurchase({
       transactionId: charge.transactionId,
       email: payer.email,
       buyerName: payer.name,
       reference,
       totalCents,
     });
+    // A order do Mercado Pago não devolve o e-mail do pagador. Sem o histórico
+    // (Blob ou disco) nem o pedido local, o webhook não teria para quem enviar o CSV.
+    if (!remembered && !saved) {
+      console.error("[checkout] Pix não exibido: nem histórico nem pedido local gravados", {
+        transactionId: charge.transactionId,
+        orderId,
+      });
+      return NextResponse.json({ error: "Não foi possível gerar o Pix agora." }, { status: 503 });
+    }
 
     console.info("[checkout] Pix criado", {
       transactionId: charge.transactionId,
       orderId,
       totalCents,
-      notificationUrl,
     });
 
     return NextResponse.json({
@@ -210,7 +213,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (error instanceof MissingEnvError) {
-      console.error("[checkout] variável ausente", { envName: error.envName, notificationUrl });
+      console.error("[checkout] variável ausente", { envName: error.envName });
       return NextResponse.json(
         { error: "Não foi possível gerar o Pix agora." },
         { status: 503 },
@@ -219,7 +222,6 @@ export async function POST(request: Request) {
 
     console.error("[checkout] falha ao gerar o Pix", {
       orderId,
-      notificationUrl,
       name: error instanceof Error ? error.name : "unknown",
       message: error instanceof Error ? error.message : String(error),
     });

@@ -1,25 +1,27 @@
 import { NextResponse } from "next/server";
 import { MissingEnvError } from "@/lib/env";
-import { fetchPixStatus } from "@/lib/paghiper";
+import { fetchOrder, isPaidOrder, MP_ORDER_ID } from "@/lib/mercadopago";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const TRANSACTION = /^[A-Za-z0-9]{10,32}$/;
-const PAID = new Set(["paid", "completed"]);
-
 /** A tela do checkout consulta isto depois de mostrar o QR. Não envia o CSV. */
 export async function GET(request: Request) {
   const transactionId = new URL(request.url).searchParams.get("transaction")?.trim() ?? "";
-  if (!TRANSACTION.test(transactionId)) {
+  if (!MP_ORDER_ID.test(transactionId)) {
     return NextResponse.json({ error: "Transação inválida." }, { status: 400 });
   }
 
   try {
-    const status = await fetchPixStatus(transactionId);
-    const paid = PAID.has(status.status);
-    console.info("[checkout] status consultado", { transactionId, status: status.status, paid });
-    return NextResponse.json({ status: paid ? "paid" : status.status || "pending", paid });
+    const order = await fetchOrder(transactionId);
+    const paid = isPaidOrder(order);
+    console.info("[checkout] status consultado", {
+      transactionId,
+      status: order.status,
+      statusDetail: order.statusDetail,
+      paid,
+    });
+    return NextResponse.json({ status: paid ? "paid" : order.status || "pending", paid });
   } catch (error) {
     if (error instanceof MissingEnvError) {
       console.error("[checkout] status sem credencial", { envName: error.envName, transactionId });

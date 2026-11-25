@@ -1,191 +1,171 @@
-import { createHash, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { MissingEnvError } from "@/lib/env";
 import { quotedTotalCents, fulfillPaidOrder } from "@/lib/fulfillment";
-import { markPurchaseDelivery, rememberPurchase } from "@/lib/purchases";
+import { markPurchaseDelivery, readPurchase, rememberPurchase } from "@/lib/purchases";
 import { unpackOrderId } from "@/lib/gateway-order";
-import { confirmPixNotification, fetchPixStatus, PagHiperError } from "@/lib/paghiper";
+import {
+  fetchOrder,
+  isPaidOrder,
+  MercadoPagoError,
+  MP_ORDER_ID,
+  verifyWebhookSignature,
+} from "@/lib/mercadopago";
 import { readPendingOrder } from "@/lib/pending-order";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const PAID = new Set(["paid", "completed"]);
-
-function sameSecret(input: string, expected: string) {
-  const left = createHash("sha256").update(input).digest();
-  const right = createHash("sha256").update(expected).digest();
-  return timingSafeEqual(left, right);
-}
-
-function field(params: URLSearchParams, ...names: string[]) {
-  for (const name of names) {
-    const value = params.get(name)?.trim();
-    if (value) return value;
-  }
-  return "";
-}
-
-/**
- * O PagHiper avisa esta rota com um POST application/x-www-form-urlencoded.
- * A apiKey e o token recebidos não autenticam nada: a confirmação é a
- * consulta na API com as credenciais do servidor.
- * O CSV só sai com status paid ou completed.
- */
 function maskEmail(email: string) {
   const [user, domain] = email.split("@");
   if (!user || !domain) return "email-invalido";
   return `${user.slice(0, 2)}***@${domain}`;
 }
 
-export async function POST(request: Request) {
-  let params: URLSearchParams;
+function readJson(text: string): Record<string, unknown> {
   try {
-    params = new URLSearchParams(await request.text());
+    const value = JSON.parse(text) as unknown;
+    return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
   } catch {
-    console.error("[webhook] corpo inválido");
-    return NextResponse.json({ error: "Notificação inválida." }, { status: 400 });
+    return {};
   }
+}
 
-  const postedKey = field(params, "apiKey");
-  const expectedKey = process.env.PAGHIPER_API_KEY?.trim();
-  const notificationId = field(params, "notification_id");
-  const transactionId = field(params, "transaction_id", "idTransacao", "id_transacao");
-  const fields = [...params.keys()].filter((key) => !/token|api.?key|senha|password/i.test(key));
-  console.info("[webhook] POST recebido", {
-    transactionId: transactionId || null,
-    notificationId: notificationId || null,
-    fields,
-  });
+function text(value: unknown) {
+  return typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "";
+}
 
-  if (postedKey && expectedKey && !sameSecret(postedKey, expectedKey)) {
-    console.error("[webhook] apiKey do POST não confere");
-    return NextResponse.json({ error: "Notificação recusada." }, { status: 401 });
+/**
+ * O Mercado Pago avisa esta rota com um POST JSON e `?data.id=ORD...&type=order`.
+ * O corpo do aviso não autentica nada: o pagamento só vale depois da consulta
+ * `GET /v1/orders/{id}` com o token do servidor. Se a assinatura secreta estiver
+ * configurada, o header `x-signature` também precisa conferir.
+ * O e-mail do pagador vem do pedido local ou do histórico gravado no checkout,
+ * porque a order não devolve o pagador.
+ */
+export async function POST(request: Request) {
+  const url = new URL(request.url);
+  const body = readJson(await request.text().catch(() => ""));
+  const bodyData = body.data && typeof body.data === "object" ? (body.data as Record<string, unknown>) : {};
+
+  const dataId = url.searchParams.get("data.id")?.trim() || text(bodyData.id);
+  const type = url.searchParams.get("type")?.trim() || text(body.type);
+  const action = text(body.action);
+  console.info("[webhook] POST recebido", { type: type || null, action: action || null, dataId: dataId || null });
+
+  if (type !== "order") {
+    console.info("[webhook] aviso ignorado (não é order)", { type: type || null });
+    return NextResponse.json({ received: true, ignored: true });
   }
-
-  if (!notificationId || !transactionId) {
-    console.error("[webhook] notificação sem identificador", { transactionId: transactionId || null, notificationId: notificationId || null });
+  if (!MP_ORDER_ID.test(dataId)) {
+    console.error("[webhook] aviso sem identificador válido");
     return NextResponse.json({ error: "Notificação sem identificador." }, { status: 400 });
+  }
+
+  const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET?.trim();
+  if (secret) {
+    const valid = verifyWebhookSignature({
+      signature: request.headers.get("x-signature") ?? "",
+      requestId: request.headers.get("x-request-id") ?? "",
+      dataId: url.searchParams.get("data.id")?.trim() || dataId,
+      secret,
+    });
+    if (!valid) {
+      console.error("[webhook] x-signature não confere", { dataId });
+      return NextResponse.json({ error: "Notificação recusada." }, { status: 401 });
+    }
+  } else {
+    console.warn("[webhook] MERCADOPAGO_WEBHOOK_SECRET ausente; validando só pela consulta da order", { dataId });
   }
 
   let recordedTransaction: string | null = null;
 
   try {
-    const notice = await confirmPixNotification({ transactionId, notificationId });
-    const status = await fetchPixStatus(transactionId);
-    console.info("[webhook] status PagHiper", {
-      transactionId,
-      noticeStatus: notice.status,
-      statusStatus: status.status,
-      noticeValueCents: notice.valueCents,
-      statusValueCents: status.valueCents,
-      orderId: notice.orderId || null,
-      statusOrderId: status.orderId || null,
-      payer: maskEmail(notice.payerEmail),
+    const order = await fetchOrder(dataId);
+    console.info("[webhook] order consultada no Mercado Pago", {
+      dataId,
+      status: order.status,
+      statusDetail: order.statusDetail,
+      totalCents: order.totalCents,
+      paidCents: order.paidCents,
+      externalReference: order.externalReference || null,
     });
 
-    if (notice.transactionId !== transactionId || status.transactionId !== transactionId) {
-      console.error("[webhook] transação divergente", {
-        transactionId,
-        noticeTransactionId: notice.transactionId,
-        statusTransactionId: status.transactionId,
-      });
+    if (order.id !== dataId) {
+      console.error("[webhook] order divergente", { dataId, orderId: order.id });
       return NextResponse.json({ error: "Transação divergente." }, { status: 409 });
     }
-    if (notice.status !== status.status || notice.valueCents !== status.valueCents) {
-      console.error("[webhook] status divergente", {
-        transactionId,
-        noticeStatus: notice.status,
-        statusStatus: status.status,
-        noticeValueCents: notice.valueCents,
-        statusValueCents: status.valueCents,
-      });
-      return NextResponse.json({ error: "Status divergente." }, { status: 409 });
-    }
-    if (status.orderId && status.orderId !== notice.orderId) {
-      console.error("[webhook] pedido divergente", { transactionId, noticeOrderId: notice.orderId, statusOrderId: status.orderId });
-      return NextResponse.json({ error: "Pedido divergente." }, { status: 409 });
-    }
-    if (!PAID.has(notice.status)) {
-      console.info("[webhook] pagamento ainda não aprovado", { transactionId, status: notice.status });
-      return NextResponse.json({ received: true, status: notice.status });
+    if (!isPaidOrder(order)) {
+      console.info("[webhook] pagamento ainda não aprovado", { dataId, status: order.status, statusDetail: order.statusDetail });
+      return NextResponse.json({ received: true, status: order.status });
     }
 
-    const pending = await readPendingOrder(notice.orderId);
-    const unpacked = await unpackOrderId(notice.orderId);
-    console.info("[webhook] referência do order_id", {
+    const transactionId = order.id;
+    const pending = await readPendingOrder(order.externalReference);
+    const stored = await readPurchase(transactionId);
+    const unpacked = await unpackOrderId(order.externalReference);
+    console.info("[webhook] referência do external_reference", {
       transactionId,
-      orderId: notice.orderId || null,
       kind: unpacked.kind,
       reference: unpacked.kind === "reference" ? unpacked.reference : null,
       localOrder: Boolean(pending),
+      storedPurchase: Boolean(stored),
     });
 
-    if (pending && (pending.totalCents !== notice.valueCents || pending.email !== notice.payerEmail)) {
-      console.error("[webhook] pedido local não confere", {
-        transactionId,
-        orderId: notice.orderId,
-        localCents: pending.totalCents,
-        gatewayCents: notice.valueCents,
-        emailConfere: pending.email === notice.payerEmail,
-      });
-      return NextResponse.json({ error: "Pedido não confere." }, { status: 409 });
+    if (unpacked.kind === "unknown") {
+      console.error("[webhook] lead desconhecido na referência", { transactionId });
+      return NextResponse.json({ received: true, status: order.status });
+    }
+
+    const reference = pending?.reference ?? (unpacked.kind === "reference" ? unpacked.reference : "");
+    if (!reference) {
+      console.error("[webhook] order sem referência de itens", { transactionId });
+      return NextResponse.json({ received: true, status: order.status });
     }
     if (pending && unpacked.kind === "reference" && unpacked.reference !== pending.reference) {
       console.error("[webhook] referência não confere com o pedido local", {
         transactionId,
-        orderId: notice.orderId,
         embedded: unpacked.reference,
         local: pending.reference,
       });
       return NextResponse.json({ error: "Pedido não confere." }, { status: 409 });
     }
 
-    let reference = pending?.reference ?? "";
-    let email = pending?.email ?? "";
-    let buyerName = pending?.name;
+    // Valor: o pedido local ou o histórico gravado no checkout; sem nenhum dos dois, o catálogo.
+    const expectedCents = pending?.totalCents ?? stored?.totalCents ?? (await quotedTotalCents(reference));
+    if (expectedCents === null) {
+      console.error("[webhook] lead da referência não está no catálogo", { transactionId, reference });
+      return NextResponse.json({ received: true, status: order.status });
+    }
+    if (expectedCents !== order.totalCents) {
+      console.error("[webhook] valor não confere", {
+        transactionId,
+        reference,
+        expectedCents,
+        gatewayCents: order.totalCents,
+        source: pending ? "pedido-local" : stored ? "historico" : "catalogo",
+      });
+      return NextResponse.json({ error: "Pedido não confere." }, { status: 409 });
+    }
 
-    if (!pending) {
-      if (unpacked.kind === "unknown") {
-        console.error("[webhook] lead desconhecido na referência", { transactionId, orderId: notice.orderId });
-        return NextResponse.json({ received: true, status: notice.status });
-      }
-      if (unpacked.kind !== "reference") {
-        console.error("[webhook] pedido local ausente e order_id sem referência", { transactionId, orderId: notice.orderId });
-        return NextResponse.json({ error: "Pedido não encontrado." }, { status: 500 });
-      }
-
-      const quoted = await quotedTotalCents(unpacked.reference);
-      if (quoted === null) {
-        console.error("[webhook] lead da referência não está no catálogo", { transactionId, reference: unpacked.reference });
-        return NextResponse.json({ received: true, status: notice.status });
-      }
-      if (quoted !== notice.valueCents) {
-        console.error("[webhook] valor do catálogo não confere", {
-          transactionId,
-          reference: unpacked.reference,
-          quoted,
-          gatewayCents: notice.valueCents,
-        });
-        return NextResponse.json({ error: "Pedido não confere." }, { status: 409 });
-      }
-
-      reference = unpacked.reference;
-      email = notice.payerEmail;
-      buyerName = notice.payerName;
+    const email = pending?.email || stored?.email || "";
+    const buyerName = pending?.name || stored?.buyerName || undefined;
+    if (!email) {
+      // Pode ser o histórico ainda não visível. A nova tentativa do gateway resolve.
+      console.error("[webhook] e-mail do pagador não encontrado (sem pedido local nem histórico)", { transactionId });
+      return NextResponse.json({ error: "Pedido não encontrado." }, { status: 500 });
     }
 
     const saved = await rememberPurchase({
-      transactionId: notice.transactionId,
+      transactionId,
       email,
       buyerName,
       reference,
-      totalCents: notice.valueCents,
+      totalCents: order.totalCents,
     });
-    if (saved) recordedTransaction = notice.transactionId;
+    if (saved) recordedTransaction = transactionId;
 
     console.info("[webhook] chamando fulfillPaidOrder", {
-      transactionId: notice.transactionId,
+      transactionId,
       reference,
       email: maskEmail(email),
       localOrder: Boolean(pending),
@@ -193,7 +173,7 @@ export async function POST(request: Request) {
     });
 
     const result = await fulfillPaidOrder({
-      paymentId: notice.transactionId,
+      paymentId: transactionId,
       email,
       buyerName,
       reference,
@@ -203,22 +183,20 @@ export async function POST(request: Request) {
     }
 
     console.info("[webhook] fulfillPaidOrder respondeu", {
-      transactionId: notice.transactionId,
+      transactionId,
       outcome: result.outcome,
       productId: "productId" in result ? result.productId : null,
       emailId: result.outcome === "sent" ? (result.emailId ?? null) : null,
     });
 
     if (result.outcome === "missing-email") {
-      console.error("[webhook] pagador sem e-mail", { transactionId: notice.transactionId });
-      return NextResponse.json({ received: true, status: notice.status });
+      console.error("[webhook] pagador sem e-mail", { transactionId });
     }
     if (result.outcome === "unknown-product") {
-      console.error("[webhook] lead desconhecido", { transactionId: notice.transactionId, productId: result.productId });
-      return NextResponse.json({ received: true, status: notice.status });
+      console.error("[webhook] lead desconhecido", { transactionId, productId: result.productId });
     }
 
-    return NextResponse.json({ received: true, status: notice.status });
+    return NextResponse.json({ received: true, status: order.status });
   } catch (error) {
     if (recordedTransaction) {
       await markPurchaseDelivery(recordedTransaction, "falhou").catch((markError) => {
@@ -229,16 +207,16 @@ export async function POST(request: Request) {
       });
     }
     if (error instanceof MissingEnvError) {
-      console.error("[webhook] variável ausente", { envName: error.envName, transactionId });
+      console.error("[webhook] variável ausente", { envName: error.envName, dataId });
       return NextResponse.json({ error: "Webhook sem credencial." }, { status: 503 });
     }
 
     console.error("[webhook] falha ao processar", {
-      transactionId,
+      dataId,
       name: error instanceof Error ? error.name : "unknown",
       message: error instanceof Error ? error.message : String(error),
     });
-    const message = error instanceof PagHiperError ? "Falha ao confirmar o Pix." : "Falha ao entregar o pedido.";
+    const message = error instanceof MercadoPagoError ? "Falha ao confirmar o Pix." : "Falha ao entregar o pedido.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

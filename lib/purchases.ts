@@ -6,7 +6,7 @@ import { decodeOrder } from "@/lib/order";
 
 const FILE = path.join(process.cwd(), "private", "purchases.json");
 const BLOB_PREFIX = "purchases/";
-const TRANSACTION_ID = /^[A-Za-z0-9]{10,32}$/;
+const TRANSACTION_ID = /^[A-Za-z0-9]{10,64}$/;
 export type PurchaseItem = {
   productId: string;
   name: string;
@@ -386,4 +386,10 @@ export async function listPurchases() {
     const right = b.paidAt ?? b.createdAt;
     return right.localeCompare(left) || b.transactionId.localeCompare(a.transactionId);
   });
+}
+
+/** Lê a compra gravada na criação do Pix. O webhook tira daqui o e-mail e o nome do pagador. */
+export async function readPurchase(transactionId: string): Promise<Purchase | null> {
+  if (!TRANSACTION_ID.test(transactionId) || cannotPersist()) return null;
+  return readOne(transactionId);
 }

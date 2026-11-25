@@ -2,8 +2,25 @@ import { createHash, randomBytes } from "crypto";
 import { listProducts } from "@/lib/catalog";
 import { decodeOrder, encodeOrder, parseQuantity, type OrderLine } from "@/lib/order";
 
-/** Limite do `order_id` no PagHiper. */
+/** Limite do `external_reference` no Mercado Pago (aceita só `[A-Za-z0-9_-]`). */
 export const ORDER_ID_LIMIT = 64;
+
+/**
+ * Ids, quantidades, nonce e hashes são minúsculos, dígitos ou `-`.
+ * As maiúsculas ficam livres para os separadores, um para um, sem mudar o tamanho.
+ */
+const TO_GATEWAY: Record<string, string> = { ":": "Q", ",": "L", "|": "N", "~": "H" };
+const FROM_GATEWAY: Record<string, string> = { Q: ":", L: ",", N: "|", H: "~" };
+const GATEWAY_REF = /^[a-z0-9QLNH-]{1,64}$/;
+
+function toGateway(internal: string) {
+  return internal.replace(/[:,|~]/g, (char) => TO_GATEWAY[char]);
+}
+
+function fromGateway(external: string) {
+  if (!GATEWAY_REF.test(external)) return null;
+  return external.replace(/[QLNH]/g, (char) => FROM_GATEWAY[char]);
+}
 
 const NONCE = /^[0-9a-f]{6}$/;
 const TOKEN = /^[0-9a-f]{4,32}$/;
@@ -27,18 +44,20 @@ export async function packOrderId(reference: string): Promise<string | null> {
 
   const nonce = randomBytes(3).toString("hex");
   const literal = fit(reference, nonce);
-  if (literal) return literal;
+  if (literal) return toGateway(literal);
 
   const products = await listProducts();
-  return compactOrderId(
+  const compact = compactOrderId(
     lines,
     products.map((product) => product.id),
     nonce,
   );
+  return compact ? toGateway(compact) : null;
 }
 
-/** Recupera `id:qtd,id:qtd` a partir do order_id ecoado pelo gateway. */
-export async function unpackOrderId(orderId: string): Promise<UnpackedOrder> {
+/** Recupera `id:qtd,id:qtd` a partir do external_reference ecoado pelo gateway. */
+export async function unpackOrderId(externalReference: string): Promise<UnpackedOrder> {
+  const orderId = fromGateway(externalReference);
   if (!orderId || orderId.length > ORDER_ID_LIMIT) return { kind: "absent" };
 
   const body = stripNonce(orderId);
