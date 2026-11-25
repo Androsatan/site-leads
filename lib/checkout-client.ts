@@ -17,6 +17,12 @@ export type PixStatus = {
   status: string;
 };
 
+/** Preenchido pelo script antifraude do gateway carregado na página de checkout. */
+function deviceId() {
+  const value = (window as unknown as { MP_DEVICE_SESSION_ID?: unknown }).MP_DEVICE_SESSION_ID;
+  return typeof value === "string" ? value : undefined;
+}
+
 export async function requestCheckout(items: OrderLine[], payer: Payer): Promise<PixPayment> {
   const response = await fetch("/api/checkout", {
     method: "POST",
@@ -26,6 +32,7 @@ export async function requestCheckout(items: OrderLine[], payer: Payer): Promise
       payerName: payer.name,
       payerEmail: payer.email,
       payerCpfCnpj: payer.cpfCnpj,
+      deviceId: deviceId(),
     }),
   });
   const data = (await response.json()) as {

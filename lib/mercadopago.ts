@@ -71,13 +71,23 @@ function errorMessage(payload: unknown, fallback: string) {
   return [fallback, code, message, details].filter(Boolean).join(" | ");
 }
 
-async function callOrders(url: string, init: { method: "GET" | "POST"; body?: unknown; idempotencyKey?: string }) {
+/** Device ID gerado pelo security.js no navegador do comprador. */
+const DEVICE_ID = /^[A-Za-z0-9._:-]{1,200}$/;
+
+/** Nome que aparece no extrato do comprador (até 13 caracteres). */
+const STATEMENT_DESCRIPTOR = "LEADSFERA";
+
+async function callOrders(
+  url: string,
+  init: { method: "GET" | "POST"; body?: unknown; idempotencyKey?: string; deviceId?: string },
+) {
   const headers: Record<string, string> = {
     Accept: "application/json",
     Authorization: `Bearer ${accessToken()}`,
   };
   if (init.body !== undefined) headers["Content-Type"] = "application/json";
   if (init.idempotencyKey) headers["X-Idempotency-Key"] = init.idempotencyKey;
+  if (init.deviceId && DEVICE_ID.test(init.deviceId)) headers["X-meli-session-id"] = init.deviceId;
 
   let response: Response;
   try {
@@ -123,11 +133,13 @@ export async function createPixOrder(input: {
   payerCpfCnpj: string;
   items: PixChargeItem[];
   totalCents: number;
+  deviceId?: string;
 }): Promise<PixCharge> {
   const amount = toAmount(input.totalCents);
   const { response, payload } = await callOrders(ORDERS_URL, {
     method: "POST",
     idempotencyKey: input.idempotencyKey,
+    deviceId: input.deviceId,
     body: {
       type: "online",
       processing_mode: "automatic",
@@ -135,6 +147,7 @@ export async function createPixOrder(input: {
       total_amount: amount,
       expiration_time: "P1D",
       description: "LeadSfera",
+      config: { statement_descriptor: STATEMENT_DESCRIPTOR },
       payer: {
         email: input.payerEmail,
         ...splitName(input.payerName),

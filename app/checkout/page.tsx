@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Script from "next/script";
 import { CheckoutView } from "@/components/checkout-view";
 import { listProducts } from "@/lib/catalog";
 import { decodeOrder } from "@/lib/order";
@@ -41,6 +42,8 @@ export default async function CheckoutPage({
 
   return (
     <main className="mx-auto max-w-[1120px] px-5 py-16 md:py-24">
+      {/* Antifraude do gateway: define window.MP_DEVICE_SESSION_ID (Device ID enviado na order). */}
+      <Script src="https://www.mercadopago.com/v2/security.js" strategy="afterInteractive" {...{ view: "checkout" }} />
       <p className="text-[11px] font-medium tracking-[0.22em] text-neon">PAGAMENTO</p>
       <h1 className="mt-3 text-4xl font-semibold tracking-[-0.045em] md:text-6xl">Finalizar compra</h1>
       {decoded && lines.length === decoded.length ? (

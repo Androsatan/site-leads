@@ -20,6 +20,7 @@ type CheckoutBody = {
   payerName?: unknown;
   payerEmail?: unknown;
   payerCpfCnpj?: unknown;
+  deviceId?: unknown;
 };
 
 function digits(value: string) {
@@ -159,6 +160,7 @@ export async function POST(request: Request) {
       payerCpfCnpj: payer.cpfCnpj,
       items,
       totalCents,
+      deviceId: typeof body.deviceId === "string" ? body.deviceId : undefined,
     });
 
     if (!charge.transactionId || charge.valueCents !== totalCents) {
