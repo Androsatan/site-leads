@@ -61,6 +61,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Notificação sem identificador." }, { status: 400 });
   }
 
+  // Orders do ambiente de teste (ORDTST...) chegam assinadas com o segredo de Teste
+  // e não existem para o token de produção. No site publicado, confirma o recebimento
+  // e não entrega nada. Fora da produção da Vercel elas seguem o fluxo normal.
+  if (dataId.startsWith("ORDTST") && process.env.VERCEL_ENV === "production") {
+    console.info("[webhook] aviso de order de teste ignorado em produção", { dataId });
+    return NextResponse.json({ received: true, ignored: true });
+  }
+
   const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET?.trim();
   if (secret) {
     const valid = verifyWebhookSignature({
