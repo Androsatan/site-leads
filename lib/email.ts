@@ -3,7 +3,7 @@ import { DOWNLOAD_TTL_DAYS, createDownloadUrl } from "@/lib/download-token";
 import { buildLeadSample, sampleSize } from "@/lib/csv-sample";
 import { requireEnv } from "@/lib/env";
 import { formatBRL } from "@/lib/format";
-import type { Product } from "@/lib/products";
+import { deliveryFileName, type Product } from "@/lib/products";
 import { site } from "@/lib/site";
 
 type OrderLineMail = {
@@ -197,7 +197,7 @@ export async function sendDeliveryEmail(input: DeliveryInput) {
     url: createDownloadUrl(line.product.id, input.paymentId, prepared[index].requested),
   }));
   const attachments = prepared.map((item) => ({
-    filename: item.line.product.fileName,
+    filename: deliveryFileName(item.line.product),
     content: item.csv,
     contentType: "text/csv" as const,
   }));

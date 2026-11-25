@@ -28,7 +28,8 @@ export function splitCsvRecords(text: string) {
     const char = source[index];
     if (char === '"') {
       if (quoted && source[index + 1] === '"') {
-        current += '"';
+        // O registro sai cru no CSV da amostra: as aspas internas continuam escapadas.
+        current += '""';
         index += 1;
         continue;
       }
@@ -79,7 +80,8 @@ export function sampleCsvText(text: string, requested: number, seedKey: string) 
     pool[drawn.index] = swap;
   }
 
-  const csv = [header, ...pool.slice(0, sent)].join("\n") + "\n";
+  // BOM UTF-8, como nos arquivos de origem: o Excel abre os acentos certos.
+  const csv = "﻿" + [header, ...pool.slice(0, sent)].join("\n") + "\n";
   return { csv, requested, available, sent };
 }
 

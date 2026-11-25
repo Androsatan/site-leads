@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { buildLeadSample } from "@/lib/csv-sample";
 import { readDownloadToken } from "@/lib/download-token";
 import { getProduct } from "@/lib/catalog";
+import { deliveryFileName } from "@/lib/products";
 import { site } from "@/lib/site";
 
 export const runtime = "nodejs";
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
     return new NextResponse(new Uint8Array(sample.csv), {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${product.fileName}"`,
+        "Content-Disposition": `attachment; filename="${deliveryFileName(product)}"`,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },

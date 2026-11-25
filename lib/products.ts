@@ -53,3 +53,8 @@ export function listNiches(products: Product[]) {
 
   return niches;
 }
+
+/** Nome do CSV entregue ao cliente. Segue o lead, não o arquivo de origem (que não muda ao renomear). */
+export function deliveryFileName(product: Pick<Product, "id">) {
+  return `${product.id}.csv`;
+}

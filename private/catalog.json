@@ -30,10 +30,11 @@
     "fields": [
       "Nome",
       "WhatsApp",
-      "Bairro",
-      "Especialidade"
+      "Endereço",
+      "Site",
+      "Avaliação"
     ],
-    "description": "Consultórios da Pampulha e do São Luiz, filtrados para quem vende para odontologia.",
+    "description": "Padarias e confeitarias da região Leste de Belo Horizonte, com WhatsApp, endereço, site e avaliação no Google.",
     "featured": true,
     "whatsappVerified": true,
     "qualified": true
@@ -50,11 +51,11 @@
     "fields": [
       "Nome",
       "WhatsApp",
-      "Bairro",
+      "Endereço",
       "Site",
-      "Low Ticket"
+      "Avaliação"
     ],
-    "description": "Imobiliárias de Lourdes e Santo Antônio, prontas para uma proposta direta no WhatsApp.",
+    "description": "Padarias e confeitarias da região Nordeste de Belo Horizonte, com WhatsApp, endereço, site e avaliação no Google.",
     "featured": true,
     "whatsappVerified": true
   },
@@ -70,19 +71,20 @@
     "fields": [
       "Nome",
       "WhatsApp",
-      "Bairro",
-      "Instagram"
+      "Endereço",
+      "Site",
+      "Avaliação"
     ],
-    "description": "Academias e estúdios de Buritis e Estoril, com WhatsApp já validado.",
+    "description": "Padarias e confeitarias da região Norte de Belo Horizonte, com WhatsApp, endereço, site e avaliação no Google.",
     "featured": true,
     "whatsappVerified": true,
     "qualified": true
   },
   {
-    "id": "padarias-sul",
-    "name": "Padarias — Sul",
+    "id": "padarias-noroeste",
+    "name": "Padarias — Noroeste",
     "niche": "Padarias",
-    "city": "Sul",
+    "city": "Noroeste",
     "state": "BH",
     "leads": 1,
     "price": 10,
@@ -90,10 +92,11 @@
     "fields": [
       "Nome",
       "WhatsApp",
-      "Bairro",
-      "Cozinha"
+      "Endereço",
+      "Site",
+      "Avaliação"
     ],
-    "description": "Casas de comida de Funcionários e Savassi, separadas por tipo de cozinha.",
+    "description": "Padarias e confeitarias da região Noroeste de Belo Horizonte, com WhatsApp, endereço, site e avaliação no Google.",
     "whatsappVerified": true
   },
   {
@@ -108,10 +111,11 @@
     "fields": [
       "Nome",
       "WhatsApp",
-      "Bairro",
-      "Área"
+      "Endereço",
+      "Site",
+      "Avaliação"
     ],
-    "description": "Escritórios da Serra e do Belvedere: advocacia, contabilidade e consultoria.",
+    "description": "Padarias e confeitarias da região Oeste de Belo Horizonte, com WhatsApp, endereço, site e avaliação no Google.",
     "whatsappVerified": true
   },
   {
